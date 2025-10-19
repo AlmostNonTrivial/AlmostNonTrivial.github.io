@@ -10,7 +10,7 @@ const portfolioData = {
     projects: [
         {
             title: "SQL",
-            description: "An educational SQL engine based on SQLite, with query-compilation, bytecode VM, B+Tree storage engine, and more, built from scratch",
+            description: "An educational SQL engine based on SQLite, with query-compilation, a bytecode VM, and B+Tree storage engine, built from scratch",
 
             youtubeId: "d9a3attUq3o",
             githubLink: "https://github.com/AlmostNonTrivial/SQL-FromScratch"
@@ -23,8 +23,8 @@ const portfolioData = {
         },
         {
             title: "Optimizing Compiler",
-            description: `An educational C compiler demonstrating key pipeline stages, including parsing, type-checking, AST lowering, SSA construction,
-            SSA optimizations, graph-color based register allocation, and assembly emission, build from scratch. It's web based, so open up devtools and check it out!
+            description: `An educational C compiler demonstrating key pipeline stages: parsing, type-checking, AST lowering, SSA construction,
+            SSA optimizations, graph-color based register allocation, and assembly emission, built from scratch. It's web based, so open up devtools and check it out!
             `,
             imageUrl: "compiler_image.png",
             githubLink: "https://github.com/AlmostNonTrivial/toy_optimizing_compiler",
