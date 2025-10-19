@@ -86,7 +86,7 @@ function createProjectCard(project, styleClass) {
 
     const link = document.createElement('a');
     link.href = project.githubLink;
-    link.textContent = 'View on GitHub →';
+    link.textContent = 'View on GitHub';
     link.target = '_blank';
 
     textContainer.appendChild(title);
