@@ -17,7 +17,7 @@ const portfolioData = {
         },
         {
             title: "Multiplayer Game",
-            description: "An educational multiplayer game demonstrating modern client-server architecture with UDP networking, built from scratch",
+            description: "An educational multiplayer game demonstrating client-server architecture with UDP networking, built from scratch",
             youtubeId: "UC02WaOcnAQ",
             githubLink: "https://github.com/AlmostNonTrivial/CoD-Multiplayer-FromScratch."
         },
