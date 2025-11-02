@@ -85,6 +85,10 @@ function createProjectCard(project, styleClass) {
     const desc = document.createElement('p');
     desc.textContent = project.description;
 
+
+
+    textContainer.appendChild(title);
+    textContainer.appendChild(desc);
     if (project.githubLink) {
 
         const link = document.createElement('a');
@@ -93,9 +97,6 @@ function createProjectCard(project, styleClass) {
         link.target = '_blank';
         textContainer.appendChild(link);
     }
-
-    textContainer.appendChild(title);
-    textContainer.appendChild(desc);
 
     card.appendChild(mediaContainer);
     card.appendChild(textContainer);
