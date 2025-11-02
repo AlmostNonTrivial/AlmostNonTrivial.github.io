@@ -3,7 +3,7 @@ const portfolioData = {
     email: "chrisdance66@outlook.com",
     social: {
         github: "https://github.com/AlmostNonTrivial",
-        youtube: "https://www.youtube.com/@almost_on_trivial",
+        youtube: "https://www.youtube.com/@almost_non_trivial",
         linkedin: "https://www.linkedin.com/in/chris-dance-98620b20b/"
     },
     projects: [
