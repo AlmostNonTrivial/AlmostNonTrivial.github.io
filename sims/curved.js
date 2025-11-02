@@ -4,7 +4,7 @@ const WORKGROUP_SIZE = 8;
 const WORKGROUP_COUNT = Math.ceil(GRID_SIZE / WORKGROUP_SIZE);
 const CELL_COUNT = GRID_SIZE * GRID_SIZE;
 const DT = 0.03;
-const NUM_PARTICLES = 5;
+const NUM_PARTICLES = 8;
 
 const heightGenShaderCode = `
 @binding(0) @group(0) var<storage, read_write> height: array<f32>;
@@ -450,7 +450,7 @@ async function initMetricVisualization() {
   const initialParticles = new Float32Array(NUM_PARTICLES * 4);
   for (let i = 0; i < NUM_PARTICLES; i++) {
     const angle = (i / NUM_PARTICLES) * Math.PI * 2;
-    const r = 3.0 + (i % 3) * 1.5;
+    const r = 2.0 + (i % 3) * 1.5;
     const x0 = r * Math.cos(angle);
     const y0 = r * Math.sin(angle);
 
