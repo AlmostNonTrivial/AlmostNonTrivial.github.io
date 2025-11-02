@@ -1,4 +1,3 @@
-
 const portfolioData = {
     name: "Chris Dance",
     email: "chrisdance66@outlook.com",
@@ -9,9 +8,13 @@ const portfolioData = {
     },
     projects: [
         {
+            title: "PDE Simulations",
+            description: `Interactive WebGPU-based partial differential equation simulations with code editor.`,
+            imageUrl: "pde_image.png",
+        },
+        {
             title: "SQL",
             description: "An educational SQL engine based on SQLite, with query-compilation, a bytecode VM, and B+Tree storage engine, built from scratch",
-
             youtubeId: "d9a3attUq3o",
             githubLink: "https://github.com/AlmostNonTrivial/SQL-FromScratch"
         },
@@ -49,9 +52,7 @@ function createSocialLink(platform, url) {
             });
         });
     } else {
-
         link.href = url;
-
     }
     return link;
 }
@@ -84,14 +85,17 @@ function createProjectCard(project, styleClass) {
     const desc = document.createElement('p');
     desc.textContent = project.description;
 
-    const link = document.createElement('a');
-    link.href = project.githubLink;
-    link.textContent = 'View on GitHub';
-    link.target = '_blank';
+    if (project.githubLink) {
+
+        const link = document.createElement('a');
+        link.href = project.githubLink;
+        link.textContent = 'View on GitHub';
+        link.target = '_blank';
+        textContainer.appendChild(link);
+    }
 
     textContainer.appendChild(title);
     textContainer.appendChild(desc);
-    textContainer.appendChild(link);
 
     card.appendChild(mediaContainer);
     card.appendChild(textContainer);
@@ -127,16 +131,23 @@ function createStyle3() {
     projects.className = 'projects-3';
     portfolioData.projects.forEach(proj => {
         const card = createProjectCard(proj, 'card-3');
+
+        if (proj.title === "PDE Simulations") {
+            card.firstChild.classList.add('compiler-card');
+            card.firstChild.addEventListener('click', () => {
+                window.location = 'pde.html?sim=curved';
+            });
+        }
+
         if (proj.title === "Optimizing Compiler") {
             card.firstChild.classList.add('compiler-card');
             card.firstChild.addEventListener('click', () => {
                 window.location = 'compiler.html';
-            })
+            });
         }
+
         projects.appendChild(card);
     });
-
-
 
     content.appendChild(projects);
 

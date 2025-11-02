@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Simulations</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script src="webgpu_utils.js"></script>
+    <script src="parse_shaders.js"></script>
+    <script src="code_editor.js"></script>
+
+    <script>
+
+        window.webgpuUtils = {
+            initWebGPU,
+            createOrbitCamera,
+            updateOrbitCamera,
+            gridBuffers,
+            createStorageBuffer,
+            createUniformBuffer,
+            createVertexBuffer,
+            createIndexBuffer,
+            parse_shader,
+            create_pipeline_resources,
+            create_render_pipeline,
+            create_compute_pipeline,
+            create_bind_group,
+            dispatchCompute,
+            drawIndexed,
+            writeBuffer,
+            handleCanvasResize,
+            recreateTexture,
+            getAspectRatio,
+            createRenderPassConfig,
+            beginColorRenderPass,
+            createDepthTexture,
+            generateSphere,
+            generateGridXZ,
+            generateGridTriangleIndices,
+        };
+
+        const simFiles = {
+            advect: "sims/advect.js",
+            wave: "sims/wave.js",
+            heat: "sims/heat.js",
+            gravity: "sims/gravity.js",
+            curved: "sims/curved.js",
+            terrain: "sims/terrain.js",
+            navier: "sims/navier_stokes.js",
+            quantum: "sims/quantum.js",
+        };
+
+        let currentAnimationFrame = null;
+
+        async function loadSim(code) {
+
+            if (currentAnimationFrame) {
+                cancelAnimationFrame(currentAnimationFrame);
+                currentAnimationFrame = null;
+            }
+
+            try {
+
+                const AsyncFunction = Object.getPrototypeOf(
+                    async function () { },
+                ).constructor;
+                const simFunc = new AsyncFunction(
+                    "canvas",
+                    "requestAnimationFrame",
+                    "cancelAnimationFrame",
+                    `
+
+                        const {
+                            initWebGPU,
+                            createOrbitCamera,
+                            updateOrbitCamera,
+                            gridBuffers,
+                            createStorageBuffer,
+                            createUniformBuffer,
+                            createVertexBuffer,
+                            createIndexBuffer,
+                            parse_shader,
+                            create_pipeline_resources,
+                            create_render_pipeline,
+                            create_compute_pipeline,
+                            create_bind_group,
+                            dispatchCompute,
+                            drawIndexed,
+                            writeBuffer,
+                            handleCanvasResize,
+                            recreateTexture,
+                            getAspectRatio,
+                            createRenderPassConfig,
+                            beginColorRenderPass,
+                            createDepthTexture,
+                            generateSphere,
+                            generateGridXZ,
+                            generateGridTriangleIndices,
+                        } = window.webgpuUtils;
+
+                        ${code}
+                        `,
+                );
+
+                const canvas = document.getElementById("canvas");
+
+                const wrappedRAF = (callback) => {
+                    currentAnimationFrame = requestAnimationFrame(callback);
+                    return currentAnimationFrame;
+                };
+
+                await simFunc(canvas, wrappedRAF, cancelAnimationFrame);
+
+                if (window.editor) {
+                    window.editor.clearError();
+                }
+            } catch (e) {
+                console.error("Simulation error:", e);
+                if (window.editor) {
+                    window.editor.showError(e.message + "\n\n" + e.stack);
+                }
+                throw e;
+            }
+        }
+
+        async function init() {
+            const params = new URLSearchParams(window.location.search);
+            const sim = params.get("sim") || "curved";
+
+            window.editor = createCodeEditor();
+
+            const code = await fetch(simFiles[sim]).then((r) => r.text());
+            window.editor.setCode(code);
+            window.editor.setFilename(sim);
+
+            window.editor.onReload(async (code) => {
+                await loadSim(code);
+            });
+
+            window.editor.onFileChange(async (filename) => {
+                const code = await fetch(simFiles[filename]).then((r) =>
+                    r.text(),
+                );
+                window.editor.setCode(code);
+                await loadSim(code);
+
+                const url = new URL(window.location);
+                url.searchParams.set("sim", filename);
+                window.history.pushState({}, "", url);
+            });
+
+            window.editor.setFiles(Object.keys(simFiles));
+
+            await loadSim(code);
+        }
+
+        init().catch(console.error);
+    </script>
+</body>
+
+</html>
