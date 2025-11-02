@@ -159,6 +159,15 @@
             await loadSim(code);
         }
 
+        window.addEventListener("popstate", () => {
+            const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+            window.history.pushState({}, "", baseUrl);
+            window.location = baseUrl;
+        });
+
+
+
+
         init().catch(console.error);
     </script>
 </body>
