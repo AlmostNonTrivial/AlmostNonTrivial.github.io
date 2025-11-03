@@ -122,7 +122,6 @@ fn main(@builtin(global_invocation_id) cell: vec3u) {
 }
 `;
 
-// Separate velocity diffusion shader (for vec2f)
 const velocityDiffuseShaderCode = `
 @binding(0) @group(0) var<storage, read> fieldIn: array<vec2f>;
 @binding(1) @group(0) var<storage, read_write> fieldOut: array<vec2f>;
@@ -161,7 +160,6 @@ fn main(@builtin(global_invocation_id) cell: vec3u) {
 }
 `;
 
-// New density diffusion shader (for f32)
 const densityDiffuseShaderCode = `
 @binding(0) @group(0) var<storage, read> densityIn: array<f32>;
 @binding(1) @group(0) var<storage, read_write> densityOut: array<f32>;
@@ -342,7 +340,6 @@ fn main(@builtin(global_invocation_id) cell: vec3u) {
     let vel = velocityField[i];
     let prevPos = pos - vel * dt;
 
-    // Apply decay for dissipation
     densityOut[i] = sampleDensity(prevPos) * f32(${DENSITY_DECAY});
 }
 `;
@@ -367,21 +364,21 @@ fn main(@builtin(global_invocation_id) cell: vec3u) {
     let sourcePos = jetParams.xy;
     let angle = jetParams.z;
     let strength = jetParams.w;
-    
+
     let jetDir = vec2f(cos(angle), sin(angle));
     let toSource = pos - sourcePos;
-    
+
     let perpDist = abs(toSource.x * jetDir.y - toSource.y * jetDir.x);
     let alongDist = toSource.x * jetDir.x + toSource.y * jetDir.y;
-    
+
     let jetWidth = f32(${JET_WIDTH});
     let jetLength = f32(${JET_LENGTH});
-    
+
     if (perpDist < jetWidth && alongDist > 0.0 && alongDist < jetLength) {
         let widthFalloff = 1.0 - (perpDist / jetWidth);
         let lengthFalloff = 1.0 - (alongDist / jetLength);
         let force = jetDir * strength * widthFalloff * lengthFalloff;
-        
+
         velocityOut[i] = velocityIn[i] + force;
         densityOut[i] = min(densityIn[i] + widthFalloff * lengthFalloff * 0.5, 1.0);
     } else {
@@ -492,7 +489,6 @@ async function initFluidSim() {
     const src = step % 2;
     const dst = (step + 1) % 2;
 
-    // Step 1: Advect velocity
     submit_commands(device, (encoder) => {
       dispatch(
         device,
@@ -503,7 +499,6 @@ async function initFluidSim() {
       );
     });
 
-    // Step 2: Diffuse velocity (reduced iterations)
     for (let iter = 0; iter < VELOCITY_DIFFUSION_ITERATIONS; iter++) {
       const diffSrc = iter === 0 ? dst : (dst + iter) % 2;
       const diffDst = (dst + iter + 1) % 2;
@@ -521,7 +516,6 @@ async function initFluidSim() {
 
     const finalDiffusedIdx = (dst + VELOCITY_DIFFUSION_ITERATIONS) % 2;
 
-    // Step 3: Project (make incompressible)
     submit_commands(device, (encoder) => {
       dispatch(
         device,
@@ -532,7 +526,6 @@ async function initFluidSim() {
       );
     });
 
-    // Reset pressure buffers
     device.queue.writeBuffer(
       pressureBuffers[0],
       0,
@@ -544,7 +537,6 @@ async function initFluidSim() {
       new Float32Array(CELL_COUNT),
     );
 
-    // Jacobi iterations for pressure
     for (let iter = 0; iter < JACOBI_ITERATIONS; iter++) {
       submit_commands(device, (encoder) => {
         dispatch(
@@ -561,7 +553,6 @@ async function initFluidSim() {
       });
     }
 
-    // Subtract pressure gradient
     submit_commands(device, (encoder) => {
       dispatch(
         device,
@@ -576,7 +567,6 @@ async function initFluidSim() {
       );
     });
 
-    // Step 4: Advect density
     submit_commands(device, (encoder) => {
       dispatch(
         device,
@@ -587,7 +577,6 @@ async function initFluidSim() {
       );
     });
 
-    // Step 5: Diffuse density (optional, for smoother smoke)
     for (let iter = 0; iter < DENSITY_DIFFUSION_ITERATIONS; iter++) {
       const diffSrc = iter === 0 ? dst : (dst + iter) % 2;
       const diffDst = (dst + iter + 1) % 2;
