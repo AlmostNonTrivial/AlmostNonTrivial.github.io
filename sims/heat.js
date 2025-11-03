@@ -1,3 +1,9 @@
+/*
+Heat Equation with Implicit Time-Stepping:
+
+The heat equation describes how temperature spreads from hot regions to cold regions over time. Instead of using explicit time-stepping we use an implicit method where each new temperature value depends on its neighbors at the next timestep. This creates a system of equations that we solve iteratively using the Jacobi method, repeatedly averaging each cell's temperature with its neighbors until the solution converges (nothing meaningful changes per iteration). Random heat pulses are periodically added to the grid. The visualization maps temperature to a color gradient from dark blue (cold) through cyan and yellow to red (hot), with height also scaled by temperature to create a 3D surface."
+*/
+
 const GRID_SIZE = 120;
 const GRID_SPACING = 0.2;
 const WORKGROUP_SIZE = 8;
@@ -220,6 +226,13 @@ async function initHeatImplicitJacobi() {
   addHeatPulse();
 
   function render() {
+
+
+    if (frameCount % HEAT_SPAWN_INTERVAL === 0) {
+      addHeatPulse();
+    }
+
+
     if (handleCanvasResize(canvas)) {
       depthTexture = recreateTexture(device, canvas, depthTexture);
     }

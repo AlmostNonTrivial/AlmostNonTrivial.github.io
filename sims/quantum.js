@@ -1,3 +1,14 @@
+/*
+Schrödinger Equation in 2D: 
+
+This simulation solves the time-dependent Schrödinger equation for a quantum wave packet interacting with a potential barrier. A Gaussian wave packet is initialized with momentum directed toward the barrier, representing a particle in quantum mechanics. At each timestep, we evolve the complex-valued wave function by computing the Laplacian (kinetic energy term) and applying the potential energy from the barrier. When the wave packet encounters the barrier, it exhibits quantum tunneling and reflection. The visualization uses domain coloring to represent the complex wave function: the phase (angle) is mapped to hue in a color wheel, and the probability density (magnitude squared) determines the brightness and height of the surface.
+
+The simulation itself is very numerically unstable and actually breaks after about 30 seconds or so.
+*/
+
+
+
+
 const GRID_SIZE = 120;
 const GRID_SPACING = 0.2;
 const WORKGROUP_SIZE = 8;
@@ -6,7 +17,6 @@ const CELL_COUNT = GRID_SIZE * GRID_SIZE;
 
 const DT = 0.001;
 
-// Potential barrier parameters
 const BARRIER_ENABLED = 1;
 const BARRIER_X = GRID_SIZE * 0.6;
 const BARRIER_WIDTH = 8.0;
@@ -42,7 +52,6 @@ fn main(input: VertexInput) -> VertexOutput {
     let real = psiReal[idx];
     let imag = psiImag[idx];
 
-    // Visualize probability density as height
     let prob = real * real + imag * imag;
     let h = prob * 2.0;
 
@@ -57,14 +66,12 @@ fn main(input: VertexInput) -> VertexOutput {
 const fragmentShaderCode = `
 @fragment
 fn main(@location(0) psi: vec2<f32>, @location(1) worldPos: vec3<f32>) -> @location(0) vec4<f32> {
-    // Domain coloring: phase -> hue, magnitude -> brightness
+
     let phase = atan2(psi.y, psi.x);
     let mag = length(psi);
 
-    // Map phase to hue (0 to 1)
     let hue = (phase + 3.14159265) / (2.0 * 3.14159265);
 
-    // HSV to RGB conversion
     let h6 = hue * 6.0;
     let x = 1.0 - abs((h6 % 2.0) - 1.0);
     var rgb: vec3<f32>;
@@ -83,9 +90,8 @@ fn main(@location(0) psi: vec2<f32>, @location(1) worldPos: vec3<f32>) -> @locat
         rgb = vec3<f32>(1.0, 0.0, x);
     }
 
-    // Scale by magnitude
     let brightness = 1.0 - exp(-mag * 3.0);
-    let color = rgb;//* brightness;
+    let color = rgb * brightness;
 
     return vec4<f32>(color, 1.0);
 }
@@ -107,14 +113,13 @@ fn main(@builtin(global_invocation_id) cell: vec3u) {
 
     let i = cellIndex(cell.x, cell.y);
 
-    // Gaussian wave packet centered at (x0, y0) with momentum k
     let x = f32(cell.x) * ${GRID_SPACING};
     let y = f32(cell.y) * ${GRID_SPACING};
 
     let x0 = f32(${GRID_SIZE}) * ${GRID_SPACING} * 0.25;
     let y0 = f32(${GRID_SIZE}) * ${GRID_SPACING} * 0.5;
     let sigma = 2.0;
-    let kx = 8.0;  // momentum in x direction
+    let kx = 8.0;  
     let ky = 0.0;
 
     let dx = x - x0;
@@ -175,7 +180,6 @@ fn main(@builtin(global_invocation_id) cell: vec3u) {
     let real = psiRealIn[i];
     let imag = psiImagIn[i];
 
-    // Compute Laplacian using 5-point stencil
     let dx = ${GRID_SPACING};
     let dx2 = dx * dx;
 
@@ -193,11 +197,6 @@ fn main(@builtin(global_invocation_id) cell: vec3u) {
 
     let laplacian_real = (real_l + real_r + real_d + real_u - 4.0 * real_c) / dx2;
     let laplacian_imag = (imag_l + imag_r + imag_d + imag_u - 4.0 * imag_c) / dx2;
-
-    // Schrödinger equation: i ∂ψ/∂t = -½∇²ψ + Vψ
-    // Separating real and imaginary:
-    // ∂(real)/∂t = ½∇²(imag) - V·imag
-    // ∂(imag)/∂t = -½∇²(real) + V·real
 
     let V = potential(x, y);
     let dt = ${DT};
@@ -234,7 +233,6 @@ async function initQuantumSim() {
 
   const mvpBuffer = createUniformBuffer(device, 64);
 
-  // Create pipelines
   const renderPipeline = create_render_pipeline(
     device,
     vertexShaderCode,
@@ -246,7 +244,6 @@ async function initQuantumSim() {
 
   const evolvePipeline = create_compute_pipeline(device, evolveShaderCode);
 
-  // Initialize wave function
   submit_commands(device, (encoder) => {
     dispatch(
       device,
@@ -277,7 +274,6 @@ async function initQuantumSim() {
     const readIdx = step % 2;
     const writeIdx = (step + 1) % 2;
 
-    // Evolve
     submit_commands(device, (encoder) => {
       dispatch(
         device,
@@ -295,7 +291,6 @@ async function initQuantumSim() {
 
     step++;
 
-    // Render
     const mvp = updateOrbitCamera(camera, Date.now(), getAspectRatio(canvas));
     device.queue.writeBuffer(mvpBuffer, 0, mvp);
 

@@ -1,3 +1,10 @@
+/*
+Semi-Lagrangian Advection on a Rotating Velocity Field: 
+
+This simulation demonstrates passive scalar transport in a circular flow pattern. A rotational velocity field is pre-computed where velocity is perpendicular to the radius at each point. To advect the scalar field, we trace each grid point backward in time along the velocity field, then sample the scalar value from that previous location using bilinear interpolation with wrapping boundaries. Random scalar blobs are periodically injected into the field, and a small amount of decay is applied each frame to prevent accumulation. The visualization shows scalar intensity as a gradient from black through green to white, creating swirling patterns as the blobs get swept around in the rotation.
+*/
+
+
 const GRID_SIZE = 120;
 const GRID_SPACING = 0.2;
 const WORKGROUP_SIZE = 8;

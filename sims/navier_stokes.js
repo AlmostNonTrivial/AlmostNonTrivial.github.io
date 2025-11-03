@@ -1,3 +1,10 @@
+/*
+Navier-Stokes Fluid Simulation: 
+
+This simulation solves the incompressible Navier-Stokes equations to model smoke-like fluid flow in 2D. The algorithm follows the standard stable fluids approach: advect the velocity field using semi-Lagrangian integration, apply diffusion to simulate viscosity, then project the result to make it incompressible by solving for pressure and subtracting its gradient. The projection step uses Jacobi iteration to solve Poisson's equation for pressure. A passive density field is advected and diffused separately to visualize the flow, with exponential decay to fade old smoke. Pairs of jet sources are periodically spawned that inject both velocity and density into the field, creating turbulent plumes. The visualization maps density to a color gradient from dark blue through cyan and yellow to red, with alpha blending to create translucent smoke effects.
+*/
+
+
 const GRID_SIZE = 120;
 const GRID_SPACING = 0.2;
 const WORKGROUP_SIZE = 8;

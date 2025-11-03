@@ -1,3 +1,10 @@
+/*
+Wave Equation with RK4 Integration: 
+
+This simulation solves the 2D wave equation to model surface waves on a membrane. The wave equation describes how disturbances propagate through space at a constant speed, with each point's acceleration proportional to the curvature of the surface around it. We track both the height displacement and velocity at each grid point, evolving them using a 4th-order Runge-Kutta integrator for numerical stability and accuracy. The Laplacian is computed using a 9-point stencil for better accuracy than the standard 5-point stencil. Random impulses are periodically added to create new waves, and a small damping factor gradually reduces amplitude over time. Boundary damping near the edges prevent reflections. The visualization renders the height field as a grayscale surface with distance-based fading, showing circular wave fronts that expand, interfere, and interact as they propagate.
+*/
+
+
 const GRID_SIZE = 120;
 const GRID_SPACING = 0.2;
 const WORKGROUP_SIZE = 8;

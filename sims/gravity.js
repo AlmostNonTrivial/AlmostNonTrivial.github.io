@@ -1,3 +1,10 @@
+/*
+Poisson Equation for Gravitational Potential: 
+
+This simulation solves for the gravitational potential field created by moving mass distributions. In physics, the gravitational potential satisfies Poisson's equation, which relates the potential to the mass density at each point. One or more spherical masses follow fixed orbital paths around the origin, and at each frame we splat their density onto the grid using a Gaussian falloff. We then solve Poisson's equation iteratively using the Jacobi method, where each cell's potential is computed from its neighbors and the local density. The resulting potential field is visualized as a deformed grid surface, with the depth of the wells proportional to the potential strength. The spheres themselves are rendered as 3D objects sitting on the deformed surface.
+*/
+
+
 const GRID_SIZE = 120;
 const GRID_SPACING = 0.2;
 const WORKGROUP_SIZE = 8;
@@ -7,7 +14,7 @@ const CELL_COUNT = GRID_SIZE * GRID_SIZE;
 const POISSON_ITERATIONS = 60;
 const DEPTH_SCALE = 0.15;
 const FOUR_PI_G = 8.0;
-const NUM_SPHERES = 1;
+const NUM_SPHERES = 2;
 
 const gridVertexShaderCode = `
 struct Uniforms {

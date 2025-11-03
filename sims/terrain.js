@@ -1,5 +1,11 @@
-const GRID_SIZE = 120;
-const GRID_SPACING = 0.2;
+/*
+Hydraulic Erosion Simulation: 
+
+This simulation generates procedural terrain using fractal noise and then erodes it through water flow. The terrain starts as multi-octave noise with ridge features mixed in. Water droplets are spawned randomly across the surface, and a simplified fluid simulation tracks water depth, velocity, and sediment at each grid cell. Water flows downhill based on height differences between neighboring cells, picking up sediment when moving fast (erosion) and depositing it when moving slowly. Evaporation gradually removes water and sediment over time. The erosion runs for a fixed number of iterations at startup to carve realistic valleys and drainage patterns. The visualization colors the terrain based on height, from deep blue for low areas through tan and green for mid-elevations to white for peaks, with lighting based on surface slope.
+*/
+
+const GRID_SIZE = 500;
+const GRID_SPACING = 0.05;
 const WORKGROUP_SIZE = 8;
 const WORKGROUP_COUNT = Math.ceil(GRID_SIZE / WORKGROUP_SIZE);
 const CELL_COUNT = GRID_SIZE * GRID_SIZE;
@@ -51,7 +57,7 @@ fn main(@location(0) height: f32, @location(1) worldPos: vec3<f32>) -> @location
     var color: vec3<f32>;
     if (h < -0.5) {
         color = vec3<f32>(0.1, 0.2, 0.4);
-    } else if (h < 0.0) {
+    } else if (h < -0.1) {
         color = mix(vec3<f32>(0.1, 0.2, 0.4), vec3<f32>(0.2, 0.3, 0.5), (h + 0.5) * 2.0);
     } else if (h < 0.3) {
         color = mix(vec3<f32>(0.8, 0.7, 0.5), vec3<f32>(0.3, 0.5, 0.2), h * 3.33);
