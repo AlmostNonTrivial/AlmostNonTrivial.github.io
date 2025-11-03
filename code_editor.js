@@ -97,17 +97,17 @@ function createCodeEditor() {
   const editorContainer = document.createElement("div");
   editorContainer.style.cssText = `
     flex: 1;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   `;
 
   const textarea = document.createElement("textarea");
   textarea.id = "simulation-code";
   textarea.style.cssText = `
     flex: 1;
-    width: 100%;
-    padding: 12px;
+    width: 98%;
+    padding-left: 12px;
     background: #1e1e1e;
     color: #d4d4d4;
     border: none;
@@ -117,6 +117,7 @@ function createCodeEditor() {
     resize: none;
     outline: none;
     tab-size: 4;
+    text-wrap: wrap;
   `;
   textarea.spellcheck = false;
 
@@ -163,10 +164,11 @@ function createCodeEditor() {
     display: flex;
     gap: 8px;
     align-items: center;
+    text-wrap: wrap;
   `;
 
   const reloadBtn = document.createElement("button");
-  reloadBtn.textContent = "Reload (Ctrl+S)";
+  reloadBtn.textContent = "Reload";
   reloadBtn.style.cssText = `
     flex: 1;
     padding: 8px 16px;
@@ -301,6 +303,7 @@ function createCodeEditor() {
 
     show() {
       panel.style.display = "flex";
+
     },
 
     hide() {
