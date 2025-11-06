@@ -1,9 +1,8 @@
 /*
-Geodesic Motion on Curved Surfaces: 
+Geodesic Motion on Curved Surfaces:
 
-This simulation demonstrates particle motion on a curved 2D surface embedded in 3D space. A height field is generated using a combination of Gaussian bumps and saddle shapes to create interesting curvature. From this height field, we compute the metric tensor (which encodes distances and angles on the curved surface) and the Christoffel symbols (which describe how the coordinate system itself curves). Particles are initialized in circular orbits and their motion is evolved using the geodesic equation, where the Christoffel symbols act as correction terms that keep particles following the natural straight paths on the curved surface. When particles move through regions of high curvature, their trajectories bend even though they're following geodesics (the curved-space equivalent of straight lines). The visualization colors the surface based on the magnitude of the Christoffel symbols to show regions of strong curvature, with particles rendered as spheres that roll along the deformed surface."
+This simulation demonstrates particle motion on a curved 2D surface embedded in 3D space. A height field is generated using a combination of Gaussian bumps and saddle shapes to create curvature. From this height field, we compute the metric tensor (which encodes distances and angles on the curved surface) and the Christoffel symbols (which describe how the coordinate system itself curves). Particles are initialized in circular orbits and their motion is evolved using the geodesic equation, where the Christoffel symbols act as correction terms that keep particles following the natural straight paths on the curved surface. When particles move through regions of high curvature, their trajectories bend even though they're following geodesics (the curved-space equivalent of straight lines). The visualization colors the surface based on the magnitude of the Christoffel symbols to show regions of strong curvature, with particles rendered as spheres that roll along the deformed surface."
 */
-
 
 const GRID_SIZE = 120;
 const GRID_SPACING = 0.2;
