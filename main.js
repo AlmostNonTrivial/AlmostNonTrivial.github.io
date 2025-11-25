@@ -18,6 +18,8 @@ const portfolioData = {
       title: "PDE Simulations",
       description: `Interactive WebGPU-based partial differential equation simulations with code editor.`,
       imageUrl: "pde_image.png",
+      githubLink:
+        "https://github.com/AlmostNonTrivial/Partial-Differential-Equations-WebGPU",
     },
     {
       title: "Multiplayer Game",
