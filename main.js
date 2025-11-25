@@ -27,14 +27,14 @@ const portfolioData = {
       githubLink:
         "https://github.com/AlmostNonTrivial/CoD-Multiplayer-FromScratch",
     },
-    {
-      title: "Optimizing Compiler",
-      description: `An educational C compiler demonstrating key pipeline stages: parsing, type-checking, AST lowering, SSA construction,
-            SSA optimizations, graph-color based register allocation, and assembly emission, built from scratch. It's web based, so open up devtools and check it out!
-            `,
-      imageUrl: "compiler_image.png",
-      githubLink: "https://github.com/AlmostNonTrivial/toy_optimizing_compiler",
-    },
+    // {
+    //   title: "Optimizing Compiler",
+    //   description: `An educational C compiler demonstrating key pipeline stages: parsing, type-checking, AST lowering, SSA construction,
+    //         SSA optimizations, graph-color based register allocation, and assembly emission, built from scratch. It's web based, so open up devtools and check it out!
+    //         `,
+    //   imageUrl: "compiler_image.png",
+    //   githubLink: "https://github.com/AlmostNonTrivial/toy_optimizing_compiler",
+    // },
   ],
 };
 
