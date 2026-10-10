@@ -1,0 +1,11 @@
+---
+layout: default
+---
+<article>
+  <header class="article-header">
+    <h1>{{ page.title | escape }}</h1>
+    <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: '%-d %B %Y' }}</time>
+  </header>
+  {{ content }}
+</article>
+<p class="back-link"><a href="{{ '/' | relative_url }}">← All articles</a></p>
