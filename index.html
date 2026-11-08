@@ -75,10 +75,21 @@
       </div>
     </div>
 
-    <!-- Right: Voice Command & Shortcut Reminders -->
-    <div class="hidden md:flex items-center gap-4 text-[11px] font-mono text-zinc-500 shrink-0">
-      <span>Say <strong class="text-zinc-300 font-normal">"skip"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">Tab</kbd> to skip</span>
-      <span>Say <strong class="text-zinc-300 font-normal">"reveal"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">?</kbd> for answer</span>
+    <!-- Right: Voice Command Reminders & Audio Debug Toggle -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="hidden xl:flex items-center gap-4 text-[11px] font-mono text-zinc-500">
+        <span>Say <strong class="text-zinc-300 font-normal">"skip"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">Tab</kbd> to skip</span>
+        <span>Say <strong class="text-zinc-300 font-normal">"reveal"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">?</kbd> for answer</span>
+      </div>
+      <button
+        id="audioDebugToggleBtn"
+        type="button"
+        aria-controls="audioDebugPanel"
+        aria-expanded="false"
+        class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors"
+      >
+        Audio Debug
+      </button>
     </div>
   </header>
 
@@ -185,6 +196,109 @@
       </div>
     </div>
   </footer>
+
+  <!-- 4. AUDIO DEBUG PANEL: Recognition State, Parser Output & Event Log -->
+  <aside
+    id="audioDebugPanel"
+    aria-label="Audio debugging panel"
+    class="hidden fixed right-3 bottom-3 z-50 w-[calc(100vw-1.5rem)] sm:w-[26rem] max-h-[80vh] overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/95 shadow-2xl shadow-black/60 select-text"
+  >
+    <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800 bg-zinc-900/70">
+      <div>
+        <h2 class="text-xs font-mono font-medium uppercase tracking-widest text-zinc-200">Audio Debug</h2>
+        <p class="mt-0.5 text-[10px] font-mono text-zinc-500">Web Speech API & parser diagnostics</p>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button
+          id="audioDebugClearBtn"
+          type="button"
+          class="px-2 py-1 rounded border border-zinc-700 text-[10px] font-mono text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-colors"
+        >
+          Clear Log
+        </button>
+        <button
+          id="audioDebugCloseBtn"
+          type="button"
+          aria-label="Close audio debugging panel"
+          class="w-7 h-7 rounded border border-zinc-700 text-sm font-mono text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-colors"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+
+    <div class="overflow-y-auto max-h-[calc(80vh-4rem)] p-4 space-y-4 text-[11px] font-mono">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
+          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Speech API</span>
+          <p id="audioDebugSupport" class="mt-1 text-zinc-300">Checking…</p>
+        </div>
+        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
+          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Microphone</span>
+          <p id="audioDebugStatus" class="mt-1 text-zinc-300">Idle</p>
+        </div>
+        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
+          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Results / Restarts</span>
+          <p class="mt-1 text-zinc-300"><span id="audioDebugResultCount">0</span> / <span id="audioDebugRestartCount">0</span></p>
+        </div>
+        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
+          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Last Error</span>
+          <p id="audioDebugError" class="mt-1 text-zinc-300 break-words">None</p>
+        </div>
+      </div>
+
+      <section class="rounded-lg border border-zinc-800 overflow-hidden">
+        <h3 class="px-3 py-2 bg-zinc-900/60 border-b border-zinc-800 text-[10px] uppercase tracking-wider text-zinc-500">Latest Recognition Result</h3>
+        <dl class="p-3 space-y-2.5">
+          <div>
+            <dt class="text-zinc-500">Raw transcript</dt>
+            <dd id="audioDebugRaw" class="mt-0.5 text-zinc-200 whitespace-pre-wrap break-words">—</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-500">Unconsumed text</dt>
+            <dd id="audioDebugUnconsumed" class="mt-0.5 text-zinc-200 whitespace-pre-wrap break-words">—</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-500">Text sent to parser</dt>
+            <dd id="audioDebugEvaluated" class="mt-0.5 text-cyan-300 whitespace-pre-wrap break-words">—</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-500">Parser outcome</dt>
+            <dd id="audioDebugOutcome" class="mt-1 text-emerald-300 break-words">—</dd>
+          </div>
+          <div>
+            <dt class="text-zinc-500">Consumed result / characters</dt>
+            <dd id="audioDebugConsumed" class="mt-0.5 text-zinc-300">—</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="rounded-lg border border-zinc-800 overflow-hidden">
+        <h3 class="px-3 py-2 bg-zinc-900/60 border-b border-zinc-800 text-[10px] uppercase tracking-wider text-zinc-500">Recognition Alternatives</h3>
+        <ol id="audioDebugAlternatives" class="p-3 space-y-1.5 text-zinc-300">
+          <li class="text-zinc-600">No results yet.</li>
+        </ol>
+      </section>
+
+      <section class="rounded-lg border border-zinc-800 overflow-hidden">
+        <div class="flex items-center justify-between px-3 py-2 bg-zinc-900/60 border-b border-zinc-800">
+          <h3 class="text-[10px] uppercase tracking-wider text-zinc-500">Event Log</h3>
+          <span class="text-[10px] text-zinc-600">Last: <span id="audioDebugLastEvent">init</span></span>
+        </div>
+        <div
+          id="audioDebugLog"
+          role="log"
+          aria-label="Audio event log"
+          class="h-44 overflow-y-auto p-2 space-y-1 bg-zinc-950 text-[10px] leading-relaxed"
+        >
+          <p data-audio-debug-empty class="text-zinc-600">No audio events yet.</p>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- Audio capture, spoken answer parsing, and voice commands -->
+  <script src="audio.js"></script>
 
   <script>
     /********************************************************************
@@ -849,229 +963,7 @@
     ];
 
     /********************************************************************
-     * 3. PHONETIC NORMALIZER & SPOKEN MATH PARSER
-     ********************************************************************/
-    const WORD_TO_NUM = {
-      'zero': 0, 'oh': 0, 'nought': 0, 'nil': 0,
-      'one': 1, 'won': 1,
-      'two': 2, 'to': 2, 'too': 2,
-      'three': 3, 'tree': 3,
-      'four': 4, 'for': 4, 'fore': 4,
-      'five': 5,
-      'six': 6, 'sicks': 6,
-      'seven': 7,
-      'eight': 8, 'ate': 8,
-      'nine': 9, 'nein': 9,
-      'ten': 10,
-      'eleven': 11,
-      'twelve': 12,
-      'thirteen': 13,
-      'fourteen': 14,
-      'fifteen': 15,
-      'sixteen': 16,
-      'seventeen': 17,
-      'eighteen': 18,
-      'nineteen': 19,
-      'twenty': 20,
-      'thirty': 30,
-      'forty': 40, 'fourty': 40,
-      'fifty': 50,
-      'sixty': 60,
-      'seventy': 70,
-      'eighty': 80,
-      'ninety': 90
-    };
-
-    const CANONICAL_WORDS = {
-      // Conics
-      'circle': 'circle',
-      'ellipse': 'ellipse', 'lips': 'ellipse', 'clips': 'ellipse',
-      'parabola': 'parabola',
-      'hyperbola': 'hyperbola',
-      // Trig functions
-      'sine': 'sine', 'sign': 'sine', 'sin': 'sine',
-      'cosine': 'cosine', 'cosign': 'cosine', 'co-sign': 'cosine', 'cos': 'cosine',
-      'tangent': 'tangent', 'tan': 'tangent',
-      'secant': 'secant', 'sec': 'secant',
-      'cosecant': 'cosecant', 'csc': 'cosecant',
-      'cotangent': 'cotangent', 'cot': 'cotangent',
-      // Parity
-      'even': 'even',
-      'odd': 'odd',
-      'neither': 'neither'
-    };
-
-    const BOOLEAN_WORDS = {
-      'true': true, 'yes': true, 'correct': true, 'yeah': true, 'yep': true,
-      'false': false, 'no': false, 'incorrect': false, 'nope': false, 'faults': false, 'falls': false
-    };
-
-    /**
-     * Parses spoken number phrases or digit strings into an array of candidate integers.
-     * Supports negative prefixes ("minus", "negative") and compound spoken numbers up to 1000.
-     */
-    function extractIntegersFromUtterance(rawText) {
-      const cleaned = rawText
-        .toLowerCase()
-        .replace(/,/g, '')
-        .replace(/[^\w\s-]/g, ' ')
-        .trim();
-
-      if (!cleaned) return [];
-
-      const candidates = new Set();
-
-      // 1. Direct digit matches (including "-42" or "minus 42" or "negative 42")
-      const digitRegex = /(?:(minus|negative)\s+)?(-?\d+)/g;
-      let match;
-      while ((match = digitRegex.exec(cleaned)) !== null) {
-        let val = parseInt(match[2], 10);
-        if (!Number.isNaN(val)) {
-          if (match[1] && val > 0) val = -val;
-          candidates.add(val);
-        }
-      }
-
-      // 2. Spoken word sequence parser
-      const tokens = cleaned.split(/\s+/);
-      let sign = 1;
-      let current = 0;
-      let acc = 0;
-      let hasNumberToken = false;
-
-      const flush = () => {
-        if (hasNumberToken) {
-          candidates.add(sign * (acc + current));
-        }
-        sign = 1;
-        current = 0;
-        acc = 0;
-        hasNumberToken = false;
-      };
-
-      for (let i = 0; i < tokens.length; i++) {
-        const t = tokens[i];
-        if (t === 'minus' || t === 'negative') {
-          if (hasNumberToken) flush();
-          sign = -1;
-          continue;
-        }
-        if (t === 'and') continue;
-
-        if (Object.prototype.hasOwnProperty.call(WORD_TO_NUM, t)) {
-          const val = WORD_TO_NUM[t];
-          current += val;
-          hasNumberToken = true;
-          candidates.add(sign * (acc + current));
-        } else if (t === 'hundred') {
-          if (current === 0) current = 1;
-          current *= 100;
-          hasNumberToken = true;
-          candidates.add(sign * (acc + current));
-        } else if (t === 'thousand') {
-          if (current === 0) current = 1;
-          acc += current * 1000;
-          current = 0;
-          hasNumberToken = true;
-          candidates.add(sign * acc);
-        } else if (/^-?\d+$/.test(t)) {
-          const dVal = parseInt(t, 10);
-          candidates.add(sign < 0 && dVal > 0 ? -dVal : dVal);
-          flush();
-        } else {
-          flush();
-        }
-      }
-      flush();
-
-      return Array.from(candidates);
-    }
-
-    /**
-     * Checks whether a spoken or typed string matches the active problem's expected answer
-     * or triggers a voice command ("skip", "reveal").
-     */
-    function evaluateUtterance(text, activeQuestion) {
-      const lower = text.toLowerCase().trim();
-      if (!lower) return { type: 'NONE' };
-
-      const words = lower.replace(/[^\w\s-]/g, ' ').split(/\s+/).filter(Boolean);
-
-      // Check voice commands first on recent words
-      const recentWords = words.slice(-4);
-      if (recentWords.some(w => w === 'skip' || w === 'pass' || w === 'next')) {
-        return { type: 'COMMAND_SKIP' };
-      }
-      if (recentWords.some(w => w === 'reveal' || w === 'answer' || w === 'help')) {
-        return { type: 'COMMAND_REVEAL' };
-      }
-
-      if (!activeQuestion) return { type: 'NONE' };
-
-      // 1. INTEGER Answer Matching
-      if (activeQuestion.answerType === 'INTEGER') {
-        const nums = extractIntegersFromUtterance(lower);
-        const latestNum = nums.length > 0 ? nums[nums.length - 1] : null;
-        if (nums.includes(activeQuestion.answer)) {
-          return {
-            type: 'MATCH',
-            matchedDisplay: String(activeQuestion.answer),
-            preview: String(activeQuestion.answer)
-          };
-        }
-        return {
-          type: 'NO_MATCH',
-          preview: latestNum !== null ? String(latestNum) : ''
-        };
-      }
-
-      // 2. TRUE / FALSE Answer Matching
-      if (activeQuestion.answerType === 'TRUE / FALSE') {
-        let latestBool = null;
-        for (const w of words) {
-          if (Object.prototype.hasOwnProperty.call(BOOLEAN_WORDS, w)) {
-            latestBool = BOOLEAN_WORDS[w];
-            if (latestBool === activeQuestion.answer) {
-              return {
-                type: 'MATCH',
-                matchedDisplay: latestBool ? 'True' : 'False',
-                preview: latestBool ? 'True' : 'False'
-              };
-            }
-          }
-        }
-        return {
-          type: 'NO_MATCH',
-          preview: latestBool !== null ? (latestBool ? 'True' : 'False') : ''
-        };
-      }
-
-      // 3. WORD Answer Matching
-      if (activeQuestion.answerType === 'WORD') {
-        let latestWord = '';
-        for (const w of words) {
-          if (Object.prototype.hasOwnProperty.call(CANONICAL_WORDS, w)) {
-            latestWord = CANONICAL_WORDS[w];
-            if (latestWord === activeQuestion.answer) {
-              return {
-                type: 'MATCH',
-                matchedDisplay: latestWord,
-                preview: latestWord
-              };
-            }
-          }
-        }
-        return {
-          type: 'NO_MATCH',
-          preview: latestWord
-        };
-      }
-
-      return { type: 'NONE' };
-    }
-
-    /********************************************************************
-     * 4. APPLICATION STATE & UI CONTROLLER
+     * 3. APPLICATION STATE & UI CONTROLLER
      ********************************************************************/
     const state = {
       activeCategories: new Set(CATEGORIES.filter(c => c.defaultOn).map(c => c.id)),
@@ -1215,156 +1107,7 @@
     }
 
     /********************************************************************
-     * 5. WEB SPEECH API ENGINE (ZERO-WAIT INTERIM EVALUATION)
-     ********************************************************************/
-    function initSpeechRecognition() {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        micBtnLabel.textContent = 'Voice Unsupported';
-        micToggleBtn.disabled = true;
-        liveTranscript.textContent = 'Web Speech API unavailable in this browser. Use keyboard input below.';
-        return;
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-      recognition.maxAlternatives = 3;
-
-      recognition.onstart = () => {
-        state.micListening = true;
-        micDot.className = 'w-2 h-2 rounded-full bg-emerald-400 mic-active-dot';
-        micBtnLabel.textContent = 'Listening';
-        micToggleBtn.classList.replace('border-zinc-800', 'border-emerald-500/50');
-        liveTranscript.textContent = 'Listening for answer...';
-      };
-
-      recognition.onresult = (event) => {
-        const now = performance.now();
-        // 350ms cooldown after a match so residual syllables don't trigger on the new question
-        if (now - state.lastMatchTimestamp < 350 || state.isTransitioning) {
-          const latestIdx = event.results.length - 1;
-          state.consumedResultIndex = latestIdx;
-          state.consumedTranscriptLength = event.results[latestIdx][0].transcript.length;
-          return;
-        }
-
-        const latestIdx = event.results.length - 1;
-        const resultItem = event.results[latestIdx];
-        const rawTranscript = resultItem[0].transcript;
-
-        // Slice out any portion of the current continuous result block that was already consumed
-        let unconsumed = rawTranscript;
-        if (latestIdx === state.consumedResultIndex) {
-          unconsumed = rawTranscript.slice(state.consumedTranscriptLength);
-        } else {
-          state.consumedResultIndex = -1;
-          state.consumedTranscriptLength = 0;
-        }
-
-        const displayStr = unconsumed.trim() || rawTranscript.trim();
-        if (displayStr) {
-          liveTranscript.textContent = `"${displayStr}"`;
-        }
-
-        // Evaluate across all provided recognition alternatives for maximum homophone resilience
-        for (let altIdx = 0; altIdx < resultItem.length; altIdx++) {
-          const altRaw = resultItem[altIdx].transcript;
-          const altUnconsumed = (latestIdx === state.consumedResultIndex)
-            ? altRaw.slice(state.consumedTranscriptLength)
-            : altRaw;
-
-          // Only evaluate the trailing window of words so old mistakes don't block new words
-          const trailingWords = altUnconsumed.trim().split(/\s+/).slice(-4).join(' ');
-          const outcome = evaluateUtterance(trailingWords, state.currentQuestion);
-
-          if (altIdx === 0) {
-            if (outcome.preview) {
-              parsedPreview.textContent = `→ ${outcome.preview}`;
-              parsedPreview.classList.remove('hidden');
-            } else {
-              parsedPreview.classList.add('hidden');
-            }
-          }
-
-          if (outcome.type === 'COMMAND_SKIP') {
-            state.consumedResultIndex = latestIdx;
-            state.consumedTranscriptLength = rawTranscript.length;
-            state.lastMatchTimestamp = performance.now();
-            nextQuestion();
-            return;
-          }
-
-          if (outcome.type === 'COMMAND_REVEAL') {
-            state.consumedResultIndex = latestIdx;
-            state.consumedTranscriptLength = rawTranscript.length;
-            triggerRevealTransition();
-            return;
-          }
-
-          if (outcome.type === 'MATCH') {
-            state.consumedResultIndex = latestIdx;
-            state.consumedTranscriptLength = rawTranscript.length;
-            triggerCorrectTransition(outcome.matchedDisplay);
-            return;
-          }
-        }
-      };
-
-      recognition.onerror = (event) => {
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          state.micListening = false;
-          micDot.className = 'w-2 h-2 rounded-full bg-rose-500';
-          micBtnLabel.textContent = 'Mic Blocked';
-          liveTranscript.textContent = 'Microphone permission denied. Type answers below.';
-        }
-      };
-
-      recognition.onend = () => {
-        // Auto-restart continuous session if user did not manually pause
-        if (state.micListening) {
-          try {
-            state.consumedResultIndex = -1;
-            state.consumedTranscriptLength = 0;
-            recognition.start();
-          } catch (e) {
-            // Ignore race condition on rapid restart
-          }
-        } else {
-          micDot.className = 'w-2 h-2 rounded-full bg-zinc-500';
-          micBtnLabel.textContent = 'Start Mic';
-          micToggleBtn.classList.replace('border-emerald-500/50', 'border-zinc-800');
-        }
-      };
-
-      state.recognition = recognition;
-    }
-
-    function toggleMicrophone() {
-      if (!state.recognition) {
-        initSpeechRecognition();
-      }
-      if (!state.recognition) return;
-
-      if (state.micListening) {
-        state.micListening = false;
-        state.recognition.stop();
-        liveTranscript.textContent = 'Microphone paused.';
-        parsedPreview.classList.add('hidden');
-      } else {
-        try {
-          state.consumedResultIndex = -1;
-          state.consumedTranscriptLength = 0;
-          state.recognition.start();
-        } catch (err) {
-          // Already started
-        }
-      }
-    }
-
-    /********************************************************************
-     * 6. KEYBOARD & BUTTON EVENT WIRING
+     * 4. KEYBOARD & BUTTON EVENT WIRING
      ********************************************************************/
     micToggleBtn.addEventListener('click', toggleMicrophone);
 
@@ -1444,6 +1187,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       renderCategoryPills();
       nextQuestion();
+      initAudioDebugPanel();
       initSpeechRecognition();
     });
   </script>
