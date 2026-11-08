@@ -385,19 +385,6 @@ function initAudioDebugPanel() {
 /********************************************************************
  * 3. WEB SPEECH API ENGINE (ZERO-WAIT INTERIM EVALUATION)
  ********************************************************************/
-function stopRecognitionAfterOutcome(recognition, outcomeType) {
-  if (!state.micListening) return;
-
-  try {
-    // End this utterance and let onend start a fresh session with an empty audio buffer.
-    logAudioDebug('stream-reset', `${outcomeType} accepted; restarting recognition`);
-    recognition.stop();
-  } catch (err) {
-    setAudioDebugText('error', `Recognition reset failed: ${err.message}`);
-    logAudioDebug('reset-error', err.message, 'error');
-  }
-}
-
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -412,12 +399,12 @@ function initSpeechRecognition() {
   }
 
   const recognition = new SpeechRecognition();
-  // Finalize short, single-word answers instead of keeping one utterance open indefinitely.
-  recognition.continuous = false;
+  // Keep one session alive; consumed transcript offsets prevent old audio matching twice.
+  recognition.continuous = true;
   recognition.interimResults = true;
   recognition.lang = 'en-US';
   recognition.maxAlternatives = 3;
-  logAudioDebug('configure', 'continuous=false interimResults=true lang=en-US maxAlternatives=3');
+  logAudioDebug('configure', 'continuous=true interimResults=true lang=en-US maxAlternatives=3');
 
   recognition.onstart = () => {
     state.micListening = true;
@@ -537,7 +524,6 @@ function initSpeechRecognition() {
           updateAudioDebugConsumed();
           logAudioDebug('command', `SKIP accepted from result ${entry.index}, alternative ${altIdx + 1}`);
           nextQuestion();
-          stopRecognitionAfterOutcome(recognition, outcome.type);
           return;
         }
 
@@ -547,7 +533,6 @@ function initSpeechRecognition() {
           updateAudioDebugConsumed();
           logAudioDebug('command', `REVEAL accepted from result ${entry.index}, alternative ${altIdx + 1}`);
           triggerRevealTransition();
-          stopRecognitionAfterOutcome(recognition, outcome.type);
           return;
         }
 
@@ -557,7 +542,6 @@ function initSpeechRecognition() {
           updateAudioDebugConsumed();
           logAudioDebug('match', `"${outcome.matchedDisplay}" accepted from result ${entry.index}, alternative ${altIdx + 1}`);
           triggerCorrectTransition(outcome.matchedDisplay);
-          stopRecognitionAfterOutcome(recognition, outcome.type);
           return;
         }
       }
