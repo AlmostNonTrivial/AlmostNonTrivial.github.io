@@ -1,12 +1,645 @@
----
-layout: default
----
-<h1>Articles</h1>
-<ul class="article-list">
-  {% for post in site.posts %}
-  <li>
-    <a href="{{ post.url | relative_url }}">{{ post.title | escape }}</a>
-    <time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: '%-d %B %Y' }}</time>
-  </li>
-  {% endfor %}
-</ul>
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mental Math Practice</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f17;
+            color: #e2e8f0;
+            margin: 0;
+        }
+        /* Clean mathematical typography */
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            line-height: 1.05;
+            margin: 0 0.18em;
+            font-size: 0.78em;
+        }
+        .frac-num {
+            border-bottom: 2.5px solid currentColor;
+            padding: 0 0.25em 0.1em;
+        }
+        .frac-den {
+            padding: 0.1em 0.25em 0;
+        }
+        .radical {
+            display: inline-flex;
+            align-items: baseline;
+        }
+        .radicand {
+            border-top: 2.5px solid currentColor;
+            padding-top: 0.04em;
+            display: inline-block;
+        }
+        /* Hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-6 select-none">
+
+    <!-- Top Minimal Bar -->
+    <header class="max-w-3xl w-full mx-auto flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div class="flex flex-wrap items-center gap-2" id="modeFilters">
+            <button type="button" data-mode="direct" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
+                Times &amp; Division
+            </button>
+            <button type="button" data-mode="roots" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
+                Roots
+            </button>
+            <button type="button" data-mode="exponents" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
+                Exponents
+            </button>
+            <button type="button" data-mode="fractions" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
+                Fractions &amp; Ratios
+            </button>
+            <button type="button" data-mode="offsets" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
+                Multi-Step
+            </button>
+        </div>
+
+        <!-- Optional Silent Mic Toggle -->
+        <button id="micToggleBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition flex items-center gap-2">
+            <span id="micDot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+            <span id="micLabel">Mic Off</span>
+        </button>
+    </header>
+
+    <!-- Center Stage -->
+    <main class="flex-grow flex flex-col items-center justify-center max-w-3xl w-full mx-auto my-8">
+        <div class="w-full flex flex-col items-center justify-center text-center">
+            
+            <!-- Mathematical Expression -->
+            <div id="expressionDisplay" class="font-mono font-medium text-5xl sm:text-7xl text-slate-100 min-h-[140px] flex items-center justify-center flex-wrap gap-x-4 gap-y-2 tracking-tight">
+                <!-- Populated by JS -->
+            </div>
+
+            <!-- Clean Numeric Input -->
+            <div class="mt-10 flex flex-col items-center w-full max-w-xs">
+                <input
+                    id="answerInput"
+                    type="number"
+                    inputmode="numeric"
+                    autocomplete="off"
+                    placeholder="?"
+                    class="w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-100 placeholder-slate-700 focus:outline-none focus:border-slate-500 transition"
+                />
+
+                <!-- Subtle Heard Transcript (Only visible when Mic is On) -->
+                <div id="heardPreview" class="hidden mt-3 text-xs font-mono text-slate-500 h-4"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Minimal Footer Keybind Hint -->
+    <footer class="max-w-3xl w-full mx-auto text-center pb-2">
+        <p class="text-xs text-slate-600 font-mono">
+            Press <kbd class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">Space</kbd> or <button id="skipBtn" type="button" class="underline hover:text-slate-400 transition">click here</button> to reveal &amp; skip
+        </p>
+    </footer>
+
+    <script>
+        /********************************************************************
+         * 1. STATE & FILTER CONFIGURATION
+         ********************************************************************/
+        const state = {
+            modes: new Set(['direct', 'roots', 'exponents', 'fractions', 'offsets']),
+            currentQuestion: null,
+            lastKey: '',
+            resolving: false,
+            micEnabled: false,
+            isListening: false
+        };
+
+        /********************************************************************
+         * 2. BACKWARD-GENERATED TIMES TABLES SUBSTITUTION ENGINE
+         * Every question is anchored in standard 2..12 multiplication facts
+         * and disguised via roots, exponents, factor-canceling fractions,
+         * rational quotients, or clean arithmetic offsets.
+         ********************************************************************/
+        const CUBE_ROOT_SUBS = {
+            2: 8,
+            3: 27,
+            4: 64,
+            5: 125
+        };
+
+        const EXPONENT_SUBS = {
+            4:  [{ base: 2, exp: 2 }],
+            8:  [{ base: 2, exp: 3 }],
+            9:  [{ base: 3, exp: 2 }],
+            16: [{ base: 2, exp: 4 }, { base: 4, exp: 2 }],
+            25: [{ base: 5, exp: 2 }],
+            27: [{ base: 3, exp: 3 }],
+            32: [{ base: 2, exp: 5 }]
+        };
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function pick(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function gcd(x, y) {
+            while (y !== 0) {
+                const t = y;
+                y = x % y;
+                x = t;
+            }
+            return x;
+        }
+
+        function htmlFrac(num, den) {
+            return `<span class="frac"><span class="frac-num">${num}</span><span class="frac-den">${den}</span></span>`;
+        }
+
+        function htmlSqrt(radicand, cube = false) {
+            const index = cube ? '<sup class="text-xl sm:text-2xl mr-0.5 text-slate-400">3</sup>' : '';
+            return `<span class="radical">${index}<span>√</span><span class="radicand">${radicand}</span></span>`;
+        }
+
+        function htmlExp(base, exp) {
+            return `<span>${base}<sup class="text-2xl sm:text-4xl ml-0.5">${exp}</sup></span>`;
+        }
+
+        /**
+         * Substitutes a single integer factor n with a root or exponent HTML string.
+         */
+        function disguiseFactor(n, type) {
+            if (type === 'roots') {
+                // If n is 2..5, occasionally use a cube root; otherwise square root
+                if (n in CUBE_ROOT_SUBS && Math.random() < 0.4) {
+                    return htmlSqrt(CUBE_ROOT_SUBS[n], true);
+                }
+                return htmlSqrt(n * n, false);
+            }
+            if (type === 'exponents' && n in EXPONENT_SUBS) {
+                const p = pick(EXPONENT_SUBS[n]);
+                return htmlExp(p.base, p.exp);
+            }
+            return String(n);
+        }
+
+        function generateQuestion() {
+            const activeModes = Array.from(state.modes);
+            const mode = activeModes.length > 0 ? pick(activeModes) : 'direct';
+
+            // 1. DIRECT / INVERSE TIMES TABLES: a * b or (a*b) / a
+            if (mode === 'direct') {
+                const a = randInt(2, 12);
+                const b = randInt(2, 12);
+                const c = a * b;
+
+                if (Math.random() < 0.55) {
+                    return {
+                        key: `mul_${a}_${b}`,
+                        html: `${a} <span class="text-slate-500">×</span> ${b}`,
+                        answer: c
+                    };
+                } else {
+                    return {
+                        key: `div_${c}_${a}`,
+                        html: `${c} <span class="text-slate-500">÷</span> ${a}`,
+                        answer: b
+                    };
+                }
+            }
+
+            // 2. ROOT SUBSTITUTION: replace one or both factors in a * b = c or c / a = b
+            if (mode === 'roots') {
+                const a = randInt(2, 12);
+                const b = randInt(2, 12);
+                const c = a * b;
+                const isDivision = Math.random() < 0.4;
+
+                if (!isDivision) {
+                    const disguiseBoth = Math.random() < 0.2;
+                    const leftHTML = disguiseFactor(a, 'roots');
+                    const rightHTML = disguiseBoth ? disguiseFactor(b, 'roots') : String(b);
+                    const swap = !disguiseBoth && Math.random() < 0.5;
+                    return {
+                        key: `root_mul_${a}_${b}_${swap}`,
+                        html: swap
+                            ? `${rightHTML} <span class="text-slate-500">×</span> ${leftHTML}`
+                            : `${leftHTML} <span class="text-slate-500">×</span> ${rightHTML}`,
+                        answer: c
+                    };
+                } else {
+                    // c / sqrt(a^2) = b
+                    const divisorHTML = disguiseFactor(a, 'roots');
+                    if (Math.random() < 0.5) {
+                        return {
+                            key: `root_div_${c}_${a}`,
+                            html: `${c} <span class="text-slate-500">÷</span> ${divisorHTML}`,
+                            answer: b
+                        };
+                    } else {
+                        return {
+                            key: `root_frac_${c}_${a}`,
+                            html: htmlFrac(c, divisorHTML),
+                            answer: b
+                        };
+                    }
+                }
+            }
+
+            // 3. EXPONENT SUBSTITUTION: replace a factor (4, 8, 9, 16, 25, 27, 32) with b^e
+            if (mode === 'exponents') {
+                const expFactors = [4, 8, 9, 16, 25, 27, 32];
+                const a = pick(expFactors);
+                // Keep products clean & grounded in mental times tables
+                const maxB = a <= 9 ? 12 : 6;
+                const b = randInt(2, maxB);
+                const c = a * b;
+                const aHTML = disguiseFactor(a, 'exponents');
+
+                const variant = Math.random();
+                if (variant < 0.5) {
+                    // 2^3 * 7 = 56
+                    const swap = Math.random() < 0.4;
+                    return {
+                        key: `exp_mul_${a}_${b}_${swap}`,
+                        html: swap
+                            ? `${b} <span class="text-slate-500">×</span> ${aHTML}`
+                            : `${aHTML} <span class="text-slate-500">×</span> ${b}`,
+                        answer: c
+                    };
+                } else if (variant < 0.8) {
+                    // 72 / 2^3 = 9
+                    return {
+                        key: `exp_div_${c}_${a}`,
+                        html: htmlFrac(c, aHTML),
+                        answer: b
+                    };
+                } else {
+                    // Clean exponent + or - offset: e.g. 3^3 + 15 = 42
+                    const d = randInt(4, 25);
+                    const isAdd = Math.random() < 0.6;
+                    const ans = isAdd ? a + d : Math.max(2, a - Math.min(a - 2, d));
+                    const actualD = isAdd ? d : a - ans;
+                    const op = isAdd ? '+' : '−';
+                    return {
+                        key: `exp_off_${a}_${op}_${actualD}`,
+                        html: `${aHTML} <span class="text-slate-500">${op}</span> ${actualD}`,
+                        answer: ans
+                    };
+                }
+            }
+
+            // 4. FRACTIONS & RATIONAL FACTORING:
+            //    Pattern A: (a / b) * N where N = b * k -> answer = a * k
+            //    Pattern B: (a * b) / c where c divides a * b cleanly
+            if (mode === 'fractions') {
+                if (Math.random() < 0.55) {
+                    // Pattern A: Fractional scaling (a/b) * (b*k) = a*k
+                    const b = pick([3, 4, 5, 6, 7, 8, 9, 10, 12]);
+                    // Pick 'a' coprime to 'b' so the fraction is irreducible and non-trivial
+                    const coprimes = [];
+                    for (let cand = 2; cand < b; cand++) {
+                        if (gcd(cand, b) === 1) coprimes.push(cand);
+                    }
+                    const a = coprimes.length > 0 ? pick(coprimes) : 1;
+                    const k = randInt(2, 11);
+                    const N = b * k;
+                    const ans = a * k;
+
+                    return {
+                        key: `frac_scale_${a}_${b}_${N}`,
+                        html: `${htmlFrac(a, b)} <span class="text-slate-500">×</span> ${N}`,
+                        answer: ans
+                    };
+                } else {
+                    // Pattern B: Rational factoring (a * b) / c
+                    // Construct backward: pick two factors p, q and split c = u * v
+                    const u = randInt(2, 4);
+                    const v = randInt(2, 4);
+                    const c = u * v;
+                    const k1 = randInt(2, 5);
+                    const k2 = randInt(2, 5);
+                    const a = u * k1;
+                    const b = v * k2;
+                    const ans = k1 * k2;
+
+                    return {
+                        key: `rat_fac_${a}_${b}_${c}`,
+                        html: htmlFrac(`${a} <span class="text-slate-500">×</span> ${b}`, c),
+                        answer: ans
+                    };
+                }
+            }
+
+            // 5. OFFSET / MULTI-STEP TIMES TABLES:
+            //    (a * b) + d, (a * b) - d, or a * (b ± d)
+            const a = randInt(3, 12);
+            const b = randInt(3, 12);
+            const prod = a * b;
+            const subVariant = Math.random();
+
+            if (subVariant < 0.4) {
+                const d = randInt(5, 25);
+                return {
+                    key: `off_add_${a}_${b}_${d}`,
+                    html: `${a} <span class="text-slate-500">×</span> ${b} <span class="text-slate-500">+</span> ${d}`,
+                    answer: prod + d
+                };
+            } else if (subVariant < 0.8) {
+                const d = randInt(4, Math.min(25, prod - 3));
+                return {
+                    key: `off_sub_${a}_${b}_${d}`,
+                    html: `${a} <span class="text-slate-500">×</span> ${b} <span class="text-slate-500">−</span> ${d}`,
+                    answer: prod - d
+                };
+            } else {
+                // Factored sum/difference: a * (b1 + b2) = a * b
+                const b1 = randInt(2, b - 1);
+                const b2 = b - b1;
+                return {
+                    key: `off_paren_${a}_${b1}_${b2}`,
+                    html: `${a} <span class="text-slate-500">×</span> <span class="text-slate-400">(</span>${b1} <span class="text-slate-500">+</span> ${b2}<span class="text-slate-400">)</span>`,
+                    answer: prod
+                };
+            }
+        }
+
+        function nextQuestion() {
+            state.resolving = false;
+            let q;
+            let guard = 0;
+            do {
+                q = generateQuestion();
+                guard++;
+            } while (q.key === state.lastKey && guard < 15);
+
+            state.currentQuestion = q;
+            state.lastKey = q.key;
+
+            const display = document.getElementById('expressionDisplay');
+            display.innerHTML = q.html;
+
+            const input = document.getElementById('answerInput');
+            input.value = '';
+            input.placeholder = '?';
+            input.className = 'w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-100 placeholder-slate-700 focus:outline-none focus:border-slate-500 transition';
+            input.focus();
+        }
+
+        function triggerSuccess() {
+            if (state.resolving) return;
+            state.resolving = true;
+
+            const input = document.getElementById('answerInput');
+            input.value = state.currentQuestion.answer;
+            input.className = 'w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-emerald-950/40 border border-emerald-500/60 text-emerald-300 transition';
+
+            if (recognition && state.isListening) {
+                try { recognition.abort(); } catch (e) {}
+            }
+
+            setTimeout(() => {
+                nextQuestion();
+            }, 180);
+        }
+
+        function triggerSkip() {
+            if (state.resolving) return;
+            state.resolving = true;
+
+            const input = document.getElementById('answerInput');
+            input.value = state.currentQuestion.answer;
+            input.className = 'w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-amber-950/30 border border-amber-500/50 text-amber-300 transition';
+
+            if (recognition && state.isListening) {
+                try { recognition.abort(); } catch (e) {}
+            }
+
+            setTimeout(() => {
+                nextQuestion();
+            }, 750);
+        }
+
+        /********************************************************************
+         * 3. SILENT SPEECH RECOGNITION (OPTIONAL INPUT ONLY — NO TTS)
+         ********************************************************************/
+        const NUMBER_WORDS = {
+            'zero': 0, 'oh': 0, 'one': 1, 'won': 1, 'two': 2, 'to': 2, 'too': 2,
+            'three': 3, 'tree': 3, 'four': 4, 'for': 4, 'fore': 4, 'five': 5,
+            'six': 6, 'sex': 6, 'seven': 7, 'eight': 8, 'ate': 8, 'nine': 9,
+            'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
+            'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19
+        };
+        const TENS_WORDS = {
+            'twenty': 20, 'thirty': 30, 'forty': 40, 'fourty': 40,
+            'fifty': 50, 'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90
+        };
+
+        function parseSpokenCandidates(transcript) {
+            if (!transcript) return [];
+            const out = new Set();
+            const cleaned = transcript.toLowerCase().replace(/[-]/g, ' ').replace(/[^a-z0-9\s]/g, ' ').trim();
+            if (!cleaned) return [];
+
+            const rawDigits = cleaned.match(/\b\d+\b/g);
+            if (rawDigits) rawDigits.forEach(d => out.add(parseInt(d, 10)));
+
+            const tokens = cleaned.split(/\s+/).filter(w => w !== 'and');
+            const nums = [];
+            for (const w of tokens) {
+                if (/^\d+$/.test(w)) nums.push({ t: 'd', v: parseInt(w, 10) });
+                else if (w in NUMBER_WORDS) nums.push({ t: 'u', v: NUMBER_WORDS[w] });
+                else if (w in TENS_WORDS) nums.push({ t: 't', v: TENS_WORDS[w] });
+                else if (w === 'hundred') nums.push({ t: 'h', v: 100 });
+            }
+
+            for (let i = 0; i < nums.length; i++) {
+                const c = nums[i];
+                out.add(c.v);
+                if (c.t === 't' && i + 1 < nums.length && nums[i + 1].v <= 9) {
+                    out.add(c.v + nums[i + 1].v);
+                }
+                if (c.v === 1 && i + 1 < nums.length && nums[i + 1].t === 'h') {
+                    out.add(100);
+                    if (i + 2 < nums.length) {
+                        const n2 = nums[i + 2];
+                        out.add(100 + n2.v);
+                        if (n2.t === 't' && i + 3 < nums.length && nums[i + 3].v <= 9) {
+                            out.add(100 + n2.v + nums[i + 3].v);
+                        }
+                    }
+                }
+            }
+            return Array.from(out);
+        }
+
+        const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        function initMic() {
+            if (!SpeechRecognitionAPI) {
+                document.getElementById('micToggleBtn').classList.add('hidden');
+                return;
+            }
+            recognition = new SpeechRecognitionAPI();
+            recognition.lang = 'en-US';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onstart = () => {
+                state.isListening = true;
+                updateMicUI();
+            };
+
+            recognition.onresult = (event) => {
+                if (state.resolving || !state.currentQuestion) return;
+                let text = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    for (let j = 0; j < event.results[i].length; j++) {
+                        text += ' ' + event.results[i][j].transcript;
+                    }
+                }
+                const latest = event.results[event.results.length - 1][0].transcript.trim();
+                document.getElementById('heardPreview').textContent = latest;
+
+                if (/\b(skip|pass|next)\b/i.test(text)) {
+                    triggerSkip();
+                    return;
+                }
+
+                const candidates = parseSpokenCandidates(text);
+                if (candidates.includes(state.currentQuestion.answer)) {
+                    triggerSuccess();
+                }
+            };
+
+            recognition.onend = () => {
+                state.isListening = false;
+                if (state.micEnabled) {
+                    try { recognition.start(); } catch (e) {}
+                } else {
+                    updateMicUI();
+                }
+            };
+        }
+
+        function updateMicUI() {
+            const btn = document.getElementById('micToggleBtn');
+            const dot = document.getElementById('micDot');
+            const label = document.getElementById('micLabel');
+            const preview = document.getElementById('heardPreview');
+
+            if (state.micEnabled) {
+                btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 transition flex items-center gap-2';
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                label.textContent = 'Mic Listening';
+                preview.classList.remove('hidden');
+            } else {
+                btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition flex items-center gap-2';
+                dot.className = 'w-2 h-2 rounded-full bg-slate-600';
+                label.textContent = 'Mic Off';
+                preview.classList.add('hidden');
+                preview.textContent = '';
+            }
+        }
+
+        /********************************************************************
+         * 4. UI WIRING
+         ********************************************************************/
+        function renderModePills() {
+            document.querySelectorAll('.mode-pill').forEach(btn => {
+                const mode = btn.getAttribute('data-mode');
+                const active = state.modes.has(mode);
+                btn.className = `mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                    active
+                        ? 'bg-slate-800 border-slate-600 text-slate-100'
+                        : 'bg-transparent border-slate-800/80 text-slate-500 hover:text-slate-300'
+                }`;
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderModePills();
+            initMic();
+            nextQuestion();
+
+            // Mode filter pills
+            document.querySelectorAll('.mode-pill').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mode = btn.getAttribute('data-mode');
+                    if (state.modes.has(mode)) {
+                        if (state.modes.size > 1) state.modes.delete(mode);
+                    } else {
+                        state.modes.add(mode);
+                    }
+                    renderModePills();
+                    nextQuestion();
+                });
+            });
+
+            // Instant check on numeric input
+            const answerInput = document.getElementById('answerInput');
+            answerInput.addEventListener('input', () => {
+                if (state.resolving) return;
+                const val = parseInt(answerInput.value.trim(), 10);
+                if (!isNaN(val) && val === state.currentQuestion.answer) {
+                    triggerSuccess();
+                }
+            });
+
+            // Spacebar to skip/reveal, keep input focused
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    triggerSkip();
+                } else if (document.activeElement !== answerInput && !e.metaKey && !e.ctrlKey) {
+                    answerInput.focus();
+                }
+            });
+
+            document.getElementById('skipBtn').addEventListener('click', () => {
+                triggerSkip();
+            });
+
+            // Optional silent mic toggle
+            document.getElementById('micToggleBtn').addEventListener('click', () => {
+                state.micEnabled = !state.micEnabled;
+                updateMicUI();
+                if (state.micEnabled && recognition) {
+                    try { recognition.start(); } catch (e) {}
+                } else if (recognition) {
+                    try { recognition.stop(); } catch (e) {}
+                }
+                answerInput.focus();
+            });
+        });
+    </script>
+</body>
+</html>
