@@ -385,6 +385,19 @@ function initAudioDebugPanel() {
 /********************************************************************
  * 3. WEB SPEECH API ENGINE (ZERO-WAIT INTERIM EVALUATION)
  ********************************************************************/
+function stopRecognitionAfterOutcome(recognition, outcomeType) {
+  if (!state.micListening) return;
+
+  try {
+    // End this utterance and let onend start a fresh session with an empty audio buffer.
+    logAudioDebug('stream-reset', `${outcomeType} accepted; restarting recognition`);
+    recognition.stop();
+  } catch (err) {
+    setAudioDebugText('error', `Recognition reset failed: ${err.message}`);
+    logAudioDebug('reset-error', err.message, 'error');
+  }
+}
+
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -399,10 +412,12 @@ function initSpeechRecognition() {
   }
 
   const recognition = new SpeechRecognition();
-  recognition.continuous = true;
+  // Finalize short, single-word answers instead of keeping one utterance open indefinitely.
+  recognition.continuous = false;
   recognition.interimResults = true;
   recognition.lang = 'en-US';
   recognition.maxAlternatives = 3;
+  logAudioDebug('configure', 'continuous=false interimResults=true lang=en-US maxAlternatives=3');
 
   recognition.onstart = () => {
     state.micListening = true;
@@ -429,7 +444,20 @@ function initSpeechRecognition() {
   recognition.onresult = (event) => {
     const latestIdx = event.results.length - 1;
     const resultItem = event.results[latestIdx];
-    const rawTranscript = resultItem[0].transcript;
+    const latestRawTranscript = resultItem[0].transcript;
+    const firstResultIdx = Number.isInteger(event.resultIndex) ? event.resultIndex : latestIdx;
+    const resultEntries = [];
+
+    // Process every result changed by this event, not only the latest result block.
+    for (let resultIdx = firstResultIdx; resultIdx < event.results.length; resultIdx++) {
+      const item = event.results[resultIdx];
+      resultEntries.push({
+        index: resultIdx,
+        item,
+        rawTranscript: item[0].transcript
+      });
+    }
+    const rawTranscript = resultEntries.map(entry => entry.rawTranscript).join(' ');
 
     audioDebugState.resultCount += 1;
     setAudioDebugText('resultCount', audioDebugState.resultCount);
@@ -439,28 +467,31 @@ function initSpeechRecognition() {
     setAudioDebugText('outcome', 'Evaluating…');
     updateAudioDebugAlternatives(resultItem);
     updateAudioDebugConsumed();
-    logAudioDebug('result', `index=${latestIdx} final=${Boolean(resultItem.isFinal)} · "${rawTranscript}"`);
+    logAudioDebug('result', `first=${firstResultIdx} latest=${latestIdx} final=${Boolean(resultItem.isFinal)} · "${rawTranscript}"`);
 
     const now = performance.now();
     // 350ms cooldown after a match so residual syllables don't trigger on the new question
     if (now - state.lastMatchTimestamp < 350 || state.isTransitioning) {
       const cooldownRemaining = Math.max(0, Math.ceil(350 - (now - state.lastMatchTimestamp)));
       state.consumedResultIndex = latestIdx;
-      state.consumedTranscriptLength = rawTranscript.length;
+      state.consumedTranscriptLength = latestRawTranscript.length;
       setAudioDebugText('outcome', `IGNORED · ${state.isTransitioning ? 'question transition' : 'match cooldown'}`);
       updateAudioDebugConsumed();
       logAudioDebug('ignored', `transition=${state.isTransitioning} cooldown=${cooldownRemaining}ms · result consumed without parsing`, 'warning');
       return;
     }
 
-    // Slice out any portion of the current continuous result block that was already consumed
-    let unconsumed = rawTranscript;
-    if (latestIdx === state.consumedResultIndex) {
-      unconsumed = rawTranscript.slice(state.consumedTranscriptLength);
-    } else {
+    // Slice out text already consumed from any result block still in this session.
+    if (!resultEntries.some(entry => entry.index === state.consumedResultIndex)) {
       state.consumedResultIndex = -1;
       state.consumedTranscriptLength = 0;
     }
+    for (const entry of resultEntries) {
+      entry.unconsumed = entry.index === state.consumedResultIndex
+        ? entry.rawTranscript.slice(state.consumedTranscriptLength)
+        : entry.rawTranscript;
+    }
+    const unconsumed = resultEntries.map(entry => entry.unconsumed).join(' ');
 
     setAudioDebugText('unconsumed', unconsumed || '(empty)');
     updateAudioDebugConsumed();
@@ -470,59 +501,65 @@ function initSpeechRecognition() {
       liveTranscript.textContent = `"${displayStr}"`;
     }
 
-    // Evaluate across all provided recognition alternatives for maximum homophone resilience
-    for (let altIdx = 0; altIdx < resultItem.length; altIdx++) {
-      const altRaw = resultItem[altIdx].transcript;
-      const altUnconsumed = (latestIdx === state.consumedResultIndex)
-        ? altRaw.slice(state.consumedTranscriptLength)
-        : altRaw;
+    // Evaluate every changed result and all alternatives for homophone resilience.
+    for (const entry of resultEntries) {
+      for (let altIdx = 0; altIdx < entry.item.length; altIdx++) {
+        const altRaw = entry.item[altIdx].transcript;
+        const altUnconsumed = (entry.index === state.consumedResultIndex)
+          ? altRaw.slice(state.consumedTranscriptLength)
+          : altRaw;
 
-      // Only evaluate the trailing window of words so old mistakes don't block new words
-      const trailingWords = altUnconsumed.trim().split(/\s+/).slice(-4).join(' ');
-      const outcome = evaluateUtterance(trailingWords, state.currentQuestion);
-      const isSuccessfulOutcome = outcome.type === 'MATCH' || outcome.type === 'COMMAND_SKIP' || outcome.type === 'COMMAND_REVEAL';
+        // Only evaluate the trailing window of words so old mistakes don't block new words
+        const trailingWords = altUnconsumed.trim().split(/\s+/).slice(-4).join(' ');
+        const outcome = evaluateUtterance(trailingWords, state.currentQuestion);
+        const isSuccessfulOutcome = outcome.type === 'MATCH' || outcome.type === 'COMMAND_SKIP' || outcome.type === 'COMMAND_REVEAL';
+        const isLatestPrimaryAlternative = entry.index === latestIdx && altIdx === 0;
 
-      if (altIdx === 0 || isSuccessfulOutcome) {
-        setAudioDebugText('evaluated', `${trailingWords || '(empty)'}  [alternative ${altIdx + 1}]`);
-        setAudioDebugText('outcome', formatAudioDebugOutcome(outcome));
-      }
-      logAudioDebug('parse', `alt=${altIdx + 1} · "${trailingWords || '(empty)'}" → ${formatAudioDebugOutcome(outcome)}`);
-
-      if (altIdx === 0) {
-        if (outcome.preview) {
-          parsedPreview.textContent = `→ ${outcome.preview}`;
-          parsedPreview.classList.remove('hidden');
-        } else {
-          parsedPreview.classList.add('hidden');
+        if (isLatestPrimaryAlternative || isSuccessfulOutcome) {
+          setAudioDebugText('evaluated', `${trailingWords || '(empty)'}  [result ${entry.index}, alternative ${altIdx + 1}]`);
+          setAudioDebugText('outcome', formatAudioDebugOutcome(outcome));
         }
-      }
+        logAudioDebug('parse', `result=${entry.index} alt=${altIdx + 1} · "${trailingWords || '(empty)'}" → ${formatAudioDebugOutcome(outcome)}`);
 
-      if (outcome.type === 'COMMAND_SKIP') {
-        state.consumedResultIndex = latestIdx;
-        state.consumedTranscriptLength = rawTranscript.length;
-        state.lastMatchTimestamp = performance.now();
-        updateAudioDebugConsumed();
-        logAudioDebug('command', `SKIP accepted from alternative ${altIdx + 1}`);
-        nextQuestion();
-        return;
-      }
+        if (isLatestPrimaryAlternative) {
+          if (outcome.preview) {
+            parsedPreview.textContent = `→ ${outcome.preview}`;
+            parsedPreview.classList.remove('hidden');
+          } else {
+            parsedPreview.classList.add('hidden');
+          }
+        }
 
-      if (outcome.type === 'COMMAND_REVEAL') {
-        state.consumedResultIndex = latestIdx;
-        state.consumedTranscriptLength = rawTranscript.length;
-        updateAudioDebugConsumed();
-        logAudioDebug('command', `REVEAL accepted from alternative ${altIdx + 1}`);
-        triggerRevealTransition();
-        return;
-      }
+        if (outcome.type === 'COMMAND_SKIP') {
+          state.consumedResultIndex = latestIdx;
+          state.consumedTranscriptLength = latestRawTranscript.length;
+          state.lastMatchTimestamp = performance.now();
+          updateAudioDebugConsumed();
+          logAudioDebug('command', `SKIP accepted from result ${entry.index}, alternative ${altIdx + 1}`);
+          nextQuestion();
+          stopRecognitionAfterOutcome(recognition, outcome.type);
+          return;
+        }
 
-      if (outcome.type === 'MATCH') {
-        state.consumedResultIndex = latestIdx;
-        state.consumedTranscriptLength = rawTranscript.length;
-        updateAudioDebugConsumed();
-        logAudioDebug('match', `"${outcome.matchedDisplay}" accepted from alternative ${altIdx + 1}`);
-        triggerCorrectTransition(outcome.matchedDisplay);
-        return;
+        if (outcome.type === 'COMMAND_REVEAL') {
+          state.consumedResultIndex = latestIdx;
+          state.consumedTranscriptLength = latestRawTranscript.length;
+          updateAudioDebugConsumed();
+          logAudioDebug('command', `REVEAL accepted from result ${entry.index}, alternative ${altIdx + 1}`);
+          triggerRevealTransition();
+          stopRecognitionAfterOutcome(recognition, outcome.type);
+          return;
+        }
+
+        if (outcome.type === 'MATCH') {
+          state.consumedResultIndex = latestIdx;
+          state.consumedTranscriptLength = latestRawTranscript.length;
+          updateAudioDebugConsumed();
+          logAudioDebug('match', `"${outcome.matchedDisplay}" accepted from result ${entry.index}, alternative ${altIdx + 1}`);
+          triggerCorrectTransition(outcome.matchedDisplay);
+          stopRecognitionAfterOutcome(recognition, outcome.type);
+          return;
+        }
       }
     }
   };
