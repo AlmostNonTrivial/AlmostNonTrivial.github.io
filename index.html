@@ -1,645 +1,1451 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mental Math Practice</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            background-color: #0b0f17;
-            color: #e2e8f0;
-            margin: 0;
-        }
-        /* Clean mathematical typography */
-        .frac {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: middle;
-            line-height: 1.05;
-            margin: 0 0.18em;
-            font-size: 0.78em;
-        }
-        .frac-num {
-            border-bottom: 2.5px solid currentColor;
-            padding: 0 0.25em 0.1em;
-        }
-        .frac-den {
-            padding: 0.1em 0.25em 0;
-        }
-        .radical {
-            display: inline-flex;
-            align-items: baseline;
-        }
-        .radicand {
-            border-top: 2.5px solid currentColor;
-            padding-top: 0.04em;
-            display: inline-block;
-        }
-        /* Hide number input arrows */
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input[type=number] {
-            -moz-appearance: textfield;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mental Math & Pre-Calc — Voice Trainer</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fonts: Inter + JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- KaTeX for crisp math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Scale KaTeX cleanly for center-stage legibility */
+    .math-stage .katex {
+      font-size: clamp(2.1rem, 5.2vw, 4.25rem);
+      line-height: 1.2;
+    }
+    /* Custom subtle scrollbars if viewport is very small */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 2px;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .mic-active-dot {
+      animation: pulse-dot 1.4s infinite ease-in-out;
+    }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between p-6 select-none">
+<body class="bg-zinc-950 text-zinc-100 h-screen w-screen overflow-hidden flex flex-col justify-between select-none antialiased">
 
-    <!-- Top Minimal Bar -->
-    <header class="max-w-3xl w-full mx-auto flex flex-wrap items-center justify-between gap-3 pt-2">
-        <div class="flex flex-wrap items-center gap-2" id="modeFilters">
-            <button type="button" data-mode="direct" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
-                Times &amp; Division
-            </button>
-            <button type="button" data-mode="roots" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
-                Roots
-            </button>
-            <button type="button" data-mode="exponents" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
-                Exponents
-            </button>
-            <button type="button" data-mode="fractions" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
-                Fractions &amp; Ratios
-            </button>
-            <button type="button" data-mode="offsets" class="mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition">
-                Multi-Step
-            </button>
-        </div>
+  <!-- 1. TOP BAR: Voice Engine Status & Commands -->
+  <header class="w-full border-b border-zinc-900 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 bg-zinc-950/90 z-10">
+    <!-- Left: Mic Button + Live Raw Transcript -->
+    <div class="flex items-center gap-3 min-w-0 flex-1">
+      <button
+        id="micToggleBtn"
+        type="button"
+        class="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-all duration-150 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white focus:outline-none"
+      >
+        <span id="micDot" class="w-2 h-2 rounded-full bg-zinc-500"></span>
+        <span id="micBtnLabel">Start Mic</span>
+      </button>
 
-        <!-- Optional Silent Mic Toggle -->
-        <button id="micToggleBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition flex items-center gap-2">
-            <span id="micDot" class="w-2 h-2 rounded-full bg-slate-600"></span>
-            <span id="micLabel">Mic Off</span>
+      <!-- Live Interim Transcript Feed -->
+      <div class="flex items-center gap-2 min-w-0 flex-1 bg-zinc-900/60 border border-zinc-800/80 rounded-lg px-3 py-1.5 overflow-hidden">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500 shrink-0">Heard:</span>
+        <span id="liveTranscript" class="text-xs font-mono text-zinc-300 truncate">
+          Click "Start Mic" or type answer directly...
+        </span>
+        <span id="parsedPreview" class="ml-auto text-[11px] font-mono text-emerald-400/90 shrink-0 hidden"></span>
+      </div>
+    </div>
+
+    <!-- Right: Voice Command & Shortcut Reminders -->
+    <div class="hidden md:flex items-center gap-4 text-[11px] font-mono text-zinc-500 shrink-0">
+      <span>Say <strong class="text-zinc-300 font-normal">"skip"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">Tab</kbd> to skip</span>
+      <span>Say <strong class="text-zinc-300 font-normal">"reveal"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">?</kbd> for answer</span>
+    </div>
+  </header>
+
+  <!-- 2. CENTER STAGE: Pure Math Expression & Prompt -->
+  <main class="flex-1 flex flex-col items-center justify-center px-4 relative overflow-hidden">
+    <div
+      id="stageCard"
+      class="w-full max-w-4xl rounded-2xl border border-zinc-900 bg-zinc-950 px-6 py-10 sm:py-14 flex flex-col items-center justify-center text-center transition-colors duration-150"
+    >
+      <!-- Metadata Pill Row: Category Name + Expected Answer Type Badge -->
+      <div class="flex items-center gap-2 mb-6">
+        <span id="categoryBadge" class="px-2.5 py-0.5 rounded text-[11px] font-mono uppercase tracking-widest bg-zinc-900 text-zinc-400 border border-zinc-800">
+          CATEGORY
+        </span>
+        <span id="answerTypeBadge" class="px-2.5 py-0.5 rounded text-[11px] font-mono uppercase tracking-widest bg-zinc-900 text-amber-400/90 border border-zinc-800">
+          INTEGER
+        </span>
+      </div>
+
+      <!-- KaTeX Rendered Expression -->
+      <div id="mathContainer" class="math-stage min-h-[5.5rem] flex items-center justify-center px-2 text-zinc-50 overflow-x-auto max-w-full">
+        <!-- Rendered by KaTeX -->
+      </div>
+
+      <!-- Crisp 1-4 Word Prompt Specifier -->
+      <p id="promptText" class="mt-5 text-base sm:text-lg font-medium tracking-tight text-zinc-400">
+        Evaluate
+      </p>
+
+      <!-- Instant Match / Reveal Feedback Pill (Fixed Height to avoid layout shift) -->
+      <div class="h-8 mt-4 flex items-center justify-center">
+        <span id="feedbackBadge" class="px-3 py-0.5 rounded-full text-xs font-mono tracking-wider opacity-0 transition-opacity duration-100">
+          &nbsp;
+        </span>
+      </div>
+
+      <!-- Subtle Keyboard Fallback Input + Manual Controls -->
+      <div class="mt-4 flex items-center gap-2 w-full max-w-xs">
+        <input
+          id="manualInput"
+          type="text"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="Speak or type answer..."
+          class="w-full bg-zinc-900/50 border border-zinc-800/90 focus:border-zinc-600 rounded-lg px-3 py-1.5 text-center text-xs font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none transition-colors"
+        />
+        <button
+          id="skipBtn"
+          type="button"
+          title="Skip question (or say 'skip' / press Tab)"
+          class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
+        >
+          Skip
         </button>
-    </header>
+        <button
+          id="revealBtn"
+          type="button"
+          title="Reveal answer (or say 'reveal' / press ?)"
+          class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
+        >
+          Reveal
+        </button>
+      </div>
+    </div>
+  </main>
 
-    <!-- Center Stage -->
-    <main class="flex-grow flex flex-col items-center justify-center max-w-3xl w-full mx-auto my-8">
-        <div class="w-full flex flex-col items-center justify-center text-center">
-            
-            <!-- Mathematical Expression -->
-            <div id="expressionDisplay" class="font-mono font-medium text-5xl sm:text-7xl text-slate-100 min-h-[140px] flex items-center justify-center flex-wrap gap-x-4 gap-y-2 tracking-tight">
-                <!-- Populated by JS -->
-            </div>
-
-            <!-- Clean Numeric Input -->
-            <div class="mt-10 flex flex-col items-center w-full max-w-xs">
-                <input
-                    id="answerInput"
-                    type="number"
-                    inputmode="numeric"
-                    autocomplete="off"
-                    placeholder="?"
-                    class="w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-100 placeholder-slate-700 focus:outline-none focus:border-slate-500 transition"
-                />
-
-                <!-- Subtle Heard Transcript (Only visible when Mic is On) -->
-                <div id="heardPreview" class="hidden mt-3 text-xs font-mono text-slate-500 h-4"></div>
-            </div>
+  <!-- 3. BOTTOM TRAY: Category Toggle Pills -->
+  <footer class="w-full border-t border-zinc-900 bg-zinc-950/95 px-4 sm:px-6 py-3.5 z-10">
+    <div class="max-w-6xl mx-auto flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
+          Active Question Generators
+        </span>
+        <div class="flex items-center gap-2">
+          <button
+            id="allOnBtn"
+            type="button"
+            class="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+          >
+            All On
+          </button>
+          <button
+            id="allOffBtn"
+            type="button"
+            class="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+          >
+            All Off
+          </button>
+          <button
+            id="resetCoreBtn"
+            type="button"
+            class="text-[11px] font-mono text-zinc-400 hover:text-zinc-100 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+          >
+            Reset to Core
+          </button>
         </div>
-    </main>
+      </div>
 
-    <!-- Minimal Footer Keybind Hint -->
-    <footer class="max-w-3xl w-full mx-auto text-center pb-2">
-        <p class="text-xs text-slate-600 font-mono">
-            Press <kbd class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400">Space</kbd> or <button id="skipBtn" type="button" class="underline hover:text-slate-400 transition">click here</button> to reveal &amp; skip
-        </p>
-    </footer>
+      <!-- 16 Category Pills Grid -->
+      <div id="categoryGrid" class="flex flex-wrap gap-1.5">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </footer>
 
-    <script>
-        /********************************************************************
-         * 1. STATE & FILTER CONFIGURATION
-         ********************************************************************/
-        const state = {
-            modes: new Set(['direct', 'roots', 'exponents', 'fractions', 'offsets']),
-            currentQuestion: null,
-            lastKey: '',
-            resolving: false,
-            micEnabled: false,
-            isListening: false
-        };
+  <script>
+    /********************************************************************
+     * 1. UTILITY HELPERS FOR DETERMINISTIC "NICE INTEGER" MATH
+     ********************************************************************/
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const choice = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const gcd = (a, b) => {
+      a = Math.abs(a);
+      b = Math.abs(b);
+      while (b) { [a, b] = [b, a % b]; }
+      return a;
+    };
+    const lcm = (a, b) => Math.abs(a * b) / gcd(a, b);
 
-        /********************************************************************
-         * 2. BACKWARD-GENERATED TIMES TABLES SUBSTITUTION ENGINE
-         * Every question is anchored in standard 2..12 multiplication facts
-         * and disguised via roots, exponents, factor-canceling fractions,
-         * rational quotients, or clean arithmetic offsets.
-         ********************************************************************/
-        const CUBE_ROOT_SUBS = {
-            2: 8,
-            3: 27,
-            4: 64,
-            5: 125
-        };
+    const isPrime = (n) => {
+      if (n < 2) return false;
+      if (n === 2 || n === 3) return true;
+      if (n % 2 === 0 || n % 3 === 0) return false;
+      for (let i = 5; i * i <= n; i += 6) {
+        if (n % i === 0 || n % (i + 2) === 0) return false;
+      }
+      return true;
+    };
 
-        const EXPONENT_SUBS = {
-            4:  [{ base: 2, exp: 2 }],
-            8:  [{ base: 2, exp: 3 }],
-            9:  [{ base: 3, exp: 2 }],
-            16: [{ base: 2, exp: 4 }, { base: 4, exp: 2 }],
-            25: [{ base: 5, exp: 2 }],
-            27: [{ base: 3, exp: 3 }],
-            32: [{ base: 2, exp: 5 }]
-        };
+    // Format polynomial term cleanly with + or - signs
+    const fmtSigned = (n, varStr = '') => {
+      if (n === 0) return '';
+      const sign = n > 0 ? '+' : '-';
+      const absVal = Math.abs(n);
+      const coeff = (absVal === 1 && varStr !== '') ? '' : absVal;
+      return ` ${sign} ${coeff}${varStr}`;
+    };
 
-        function randInt(min, max) {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        function pick(arr) {
-            return arr[Math.floor(Math.random() * arr.length)];
-        }
-
-        function gcd(x, y) {
-            while (y !== 0) {
-                const t = y;
-                y = x % y;
-                x = t;
-            }
-            return x;
-        }
-
-        function htmlFrac(num, den) {
-            return `<span class="frac"><span class="frac-num">${num}</span><span class="frac-den">${den}</span></span>`;
-        }
-
-        function htmlSqrt(radicand, cube = false) {
-            const index = cube ? '<sup class="text-xl sm:text-2xl mr-0.5 text-slate-400">3</sup>' : '';
-            return `<span class="radical">${index}<span>√</span><span class="radicand">${radicand}</span></span>`;
-        }
-
-        function htmlExp(base, exp) {
-            return `<span>${base}<sup class="text-2xl sm:text-4xl ml-0.5">${exp}</sup></span>`;
-        }
-
-        /**
-         * Substitutes a single integer factor n with a root or exponent HTML string.
-         */
-        function disguiseFactor(n, type) {
-            if (type === 'roots') {
-                // If n is 2..5, occasionally use a cube root; otherwise square root
-                if (n in CUBE_ROOT_SUBS && Math.random() < 0.4) {
-                    return htmlSqrt(CUBE_ROOT_SUBS[n], true);
-                }
-                return htmlSqrt(n * n, false);
-            }
-            if (type === 'exponents' && n in EXPONENT_SUBS) {
-                const p = pick(EXPONENT_SUBS[n]);
-                return htmlExp(p.base, p.exp);
-            }
-            return String(n);
-        }
-
-        function generateQuestion() {
-            const activeModes = Array.from(state.modes);
-            const mode = activeModes.length > 0 ? pick(activeModes) : 'direct';
-
-            // 1. DIRECT / INVERSE TIMES TABLES: a * b or (a*b) / a
-            if (mode === 'direct') {
-                const a = randInt(2, 12);
-                const b = randInt(2, 12);
-                const c = a * b;
-
-                if (Math.random() < 0.55) {
-                    return {
-                        key: `mul_${a}_${b}`,
-                        html: `${a} <span class="text-slate-500">×</span> ${b}`,
-                        answer: c
-                    };
-                } else {
-                    return {
-                        key: `div_${c}_${a}`,
-                        html: `${c} <span class="text-slate-500">÷</span> ${a}`,
-                        answer: b
-                    };
-                }
-            }
-
-            // 2. ROOT SUBSTITUTION: replace one or both factors in a * b = c or c / a = b
-            if (mode === 'roots') {
-                const a = randInt(2, 12);
-                const b = randInt(2, 12);
-                const c = a * b;
-                const isDivision = Math.random() < 0.4;
-
-                if (!isDivision) {
-                    const disguiseBoth = Math.random() < 0.2;
-                    const leftHTML = disguiseFactor(a, 'roots');
-                    const rightHTML = disguiseBoth ? disguiseFactor(b, 'roots') : String(b);
-                    const swap = !disguiseBoth && Math.random() < 0.5;
-                    return {
-                        key: `root_mul_${a}_${b}_${swap}`,
-                        html: swap
-                            ? `${rightHTML} <span class="text-slate-500">×</span> ${leftHTML}`
-                            : `${leftHTML} <span class="text-slate-500">×</span> ${rightHTML}`,
-                        answer: c
-                    };
-                } else {
-                    // c / sqrt(a^2) = b
-                    const divisorHTML = disguiseFactor(a, 'roots');
-                    if (Math.random() < 0.5) {
-                        return {
-                            key: `root_div_${c}_${a}`,
-                            html: `${c} <span class="text-slate-500">÷</span> ${divisorHTML}`,
-                            answer: b
-                        };
-                    } else {
-                        return {
-                            key: `root_frac_${c}_${a}`,
-                            html: htmlFrac(c, divisorHTML),
-                            answer: b
-                        };
-                    }
-                }
-            }
-
-            // 3. EXPONENT SUBSTITUTION: replace a factor (4, 8, 9, 16, 25, 27, 32) with b^e
-            if (mode === 'exponents') {
-                const expFactors = [4, 8, 9, 16, 25, 27, 32];
-                const a = pick(expFactors);
-                // Keep products clean & grounded in mental times tables
-                const maxB = a <= 9 ? 12 : 6;
-                const b = randInt(2, maxB);
-                const c = a * b;
-                const aHTML = disguiseFactor(a, 'exponents');
-
-                const variant = Math.random();
-                if (variant < 0.5) {
-                    // 2^3 * 7 = 56
-                    const swap = Math.random() < 0.4;
-                    return {
-                        key: `exp_mul_${a}_${b}_${swap}`,
-                        html: swap
-                            ? `${b} <span class="text-slate-500">×</span> ${aHTML}`
-                            : `${aHTML} <span class="text-slate-500">×</span> ${b}`,
-                        answer: c
-                    };
-                } else if (variant < 0.8) {
-                    // 72 / 2^3 = 9
-                    return {
-                        key: `exp_div_${c}_${a}`,
-                        html: htmlFrac(c, aHTML),
-                        answer: b
-                    };
-                } else {
-                    // Clean exponent + or - offset: e.g. 3^3 + 15 = 42
-                    const d = randInt(4, 25);
-                    const isAdd = Math.random() < 0.6;
-                    const ans = isAdd ? a + d : Math.max(2, a - Math.min(a - 2, d));
-                    const actualD = isAdd ? d : a - ans;
-                    const op = isAdd ? '+' : '−';
-                    return {
-                        key: `exp_off_${a}_${op}_${actualD}`,
-                        html: `${aHTML} <span class="text-slate-500">${op}</span> ${actualD}`,
-                        answer: ans
-                    };
-                }
-            }
-
-            // 4. FRACTIONS & RATIONAL FACTORING:
-            //    Pattern A: (a / b) * N where N = b * k -> answer = a * k
-            //    Pattern B: (a * b) / c where c divides a * b cleanly
-            if (mode === 'fractions') {
-                if (Math.random() < 0.55) {
-                    // Pattern A: Fractional scaling (a/b) * (b*k) = a*k
-                    const b = pick([3, 4, 5, 6, 7, 8, 9, 10, 12]);
-                    // Pick 'a' coprime to 'b' so the fraction is irreducible and non-trivial
-                    const coprimes = [];
-                    for (let cand = 2; cand < b; cand++) {
-                        if (gcd(cand, b) === 1) coprimes.push(cand);
-                    }
-                    const a = coprimes.length > 0 ? pick(coprimes) : 1;
-                    const k = randInt(2, 11);
-                    const N = b * k;
-                    const ans = a * k;
-
-                    return {
-                        key: `frac_scale_${a}_${b}_${N}`,
-                        html: `${htmlFrac(a, b)} <span class="text-slate-500">×</span> ${N}`,
-                        answer: ans
-                    };
-                } else {
-                    // Pattern B: Rational factoring (a * b) / c
-                    // Construct backward: pick two factors p, q and split c = u * v
-                    const u = randInt(2, 4);
-                    const v = randInt(2, 4);
-                    const c = u * v;
-                    const k1 = randInt(2, 5);
-                    const k2 = randInt(2, 5);
-                    const a = u * k1;
-                    const b = v * k2;
-                    const ans = k1 * k2;
-
-                    return {
-                        key: `rat_fac_${a}_${b}_${c}`,
-                        html: htmlFrac(`${a} <span class="text-slate-500">×</span> ${b}`, c),
-                        answer: ans
-                    };
-                }
-            }
-
-            // 5. OFFSET / MULTI-STEP TIMES TABLES:
-            //    (a * b) + d, (a * b) - d, or a * (b ± d)
-            const a = randInt(3, 12);
+    /********************************************************************
+     * 2. 16 REVERSE-ENGINEERED PRE-CALCULUS & SCHOOL MATH GENERATORS
+     ********************************************************************/
+    const CATEGORIES = [
+      {
+        id: 'MULT',
+        label: 'Multiplication',
+        defaultOn: true,
+        generate() {
+          // Mix 12x20 tables and 2-digit x 1-digit mental distribution
+          if (Math.random() < 0.55) {
+            const a = randInt(3, 20);
             const b = randInt(3, 12);
-            const prod = a * b;
-            const subVariant = Math.random();
+            return {
+              latex: `${a} \\times ${b}`,
+              prompt: 'Product?',
+              answer: a * b,
+              answerType: 'INTEGER'
+            };
+          } else {
+            const a = randInt(13, 98);
+            const b = randInt(3, 9);
+            return {
+              latex: `${a} \\times ${b}`,
+              prompt: 'Product?',
+              answer: a * b,
+              answerType: 'INTEGER'
+            };
+          }
+        }
+      },
+      {
+        id: 'DIV',
+        label: 'Division',
+        defaultOn: true,
+        generate() {
+          const q = randInt(2, 25);
+          const d = randInt(2, 15);
+          const dividend = q * d;
+          return {
+            latex: `${dividend} \\div ${d}`,
+            prompt: 'Quotient?',
+            answer: q,
+            answerType: 'INTEGER'
+          };
+        }
+      },
+      {
+        id: 'POW_ROOT',
+        label: 'Powers / Roots',
+        defaultOn: true,
+        generate() {
+          const mode = choice(['sq', 'cube', 'pow2', 'sqrt', 'cbrt']);
+          if (mode === 'sq') {
+            const n = randInt(2, 30);
+            return { latex: `${n}^2`, prompt: 'Evaluate', answer: n * n, answerType: 'INTEGER' };
+          }
+          if (mode === 'cube') {
+            const n = randInt(2, 10);
+            return { latex: `${n}^3`, prompt: 'Evaluate', answer: n * n * n, answerType: 'INTEGER' };
+          }
+          if (mode === 'pow2') {
+            const n = randInt(1, 12);
+            return { latex: `2^{${n}}`, prompt: 'Evaluate', answer: 1 << n, answerType: 'INTEGER' };
+          }
+          if (mode === 'sqrt') {
+            const n = randInt(4, 30);
+            return { latex: `\\sqrt{${n * n}}`, prompt: 'Principal root?', answer: n, answerType: 'INTEGER' };
+          }
+          const n = randInt(2, 10);
+          return { latex: `\\sqrt[3]{${n * n * n}}`, prompt: 'Cube root?', answer: n, answerType: 'INTEGER' };
+        }
+      },
+      {
+        id: 'PRIME_DIV',
+        label: 'Primes / Div',
+        defaultOn: false,
+        generate() {
+          if (Math.random() < 0.5) {
+            // Balance true/false prime questions by picking either a prime or odd composite
+            const primes = [11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149];
+            const composites = [21, 27, 33, 39, 49, 51, 57, 63, 69, 77, 81, 87, 91, 93, 99, 111, 117, 119, 121, 123, 129, 133, 141, 143, 147];
+            const pickPrime = Math.random() < 0.5;
+            const n = pickPrime ? choice(primes) : choice(composites);
+            return {
+              latex: `${n}`,
+              prompt: 'Is this number prime?',
+              answer: isPrime(n),
+              answerType: 'TRUE / FALSE'
+            };
+          } else {
+            const d = choice([3, 4, 6, 8, 9, 11]);
+            const isDiv = Math.random() < 0.5;
+            const q = randInt(12, 85);
+            const offset = isDiv ? 0 : randInt(1, d - 1);
+            const N = q * d + offset;
+            return {
+              latex: `${N} \\div ${d}`,
+              prompt: `Is ${N} divisible by ${d}?`,
+              answer: isDiv,
+              answerType: 'TRUE / FALSE'
+            };
+          }
+        }
+      },
+      {
+        id: 'GCF_LCM',
+        label: 'GCF / LCM',
+        defaultOn: false,
+        generate() {
+          if (Math.random() < 0.5) {
+            const g = randInt(2, 14);
+            let m1 = randInt(2, 9);
+            let m2 = randInt(2, 9);
+            while (gcd(m1, m2) !== 1 || m1 === m2) {
+              m2 = randInt(2, 10);
+            }
+            const a = g * m1;
+            const b = g * m2;
+            return {
+              latex: `\\text{GCF}(${a},\\, ${b})`,
+              prompt: 'Greatest common factor?',
+              answer: g,
+              answerType: 'INTEGER'
+            };
+          } else {
+            const g = randInt(2, 6);
+            const pairs = [[2, 3], [2, 5], [3, 4], [3, 5], [4, 5], [2, 7], [3, 7]];
+            const [m1, m2] = choice(pairs);
+            const a = g * m1;
+            const b = g * m2;
+            return {
+              latex: `\\text{LCM}(${a},\\, ${b})`,
+              prompt: 'Least common multiple?',
+              answer: lcm(a, b),
+              answerType: 'INTEGER'
+            };
+          }
+        }
+      },
+      {
+        id: 'MOD',
+        label: 'Modulo',
+        defaultOn: false,
+        generate() {
+          const n = randInt(3, 12);
+          const a = randInt(14, 99);
+          return {
+            latex: `${a} \\bmod ${n}`,
+            prompt: 'Remainder?',
+            answer: a % n,
+            answerType: 'INTEGER'
+          };
+        }
+      },
+      {
+        id: 'FRAC',
+        label: 'Fractions',
+        defaultOn: true,
+        generate() {
+          const mode = choice(['lcd', 'num', 'ineq']);
+          if (mode === 'lcd') {
+            const denoms = [[4, 6], [6, 8], [6, 9], [8, 12], [9, 12], [10, 15], [12, 15], [12, 16], [7, 14], [5, 12]];
+            const [a, b] = choice(denoms);
+            return {
+              latex: `\\frac{1}{${a}} \\;\\text{ and }\\; \\frac{1}{${b}}`,
+              prompt: 'Lowest common denominator?',
+              answer: lcm(a, b),
+              answerType: 'INTEGER'
+            };
+          }
+          if (mode === 'num') {
+            const pairs = [[2, 3], [3, 4], [2, 5], [3, 5], [4, 5], [3, 7], [2, 7]];
+            const [b, d] = choice(pairs);
+            const a = randInt(1, b - 1);
+            const c = randInt(1, d - 1);
+            const q = b * d;
+            const p = a * d + c * b;
+            return {
+              latex: `\\frac{${a}}{${b}} + \\frac{${c}}{${d}} = \\frac{?}{${q}}`,
+              prompt: 'Missing numerator?',
+              answer: p,
+              answerType: 'INTEGER'
+            };
+          }
+          // Fraction inequality via cross-multiplication
+          let b = randInt(3, 12);
+          let d = randInt(3, 12);
+          while (b === d) d = randInt(3, 12);
+          let a = randInt(1, b - 1);
+          let c = randInt(1, d - 1);
+          if (a * d === b * c) a = Math.min(b - 1, a + 1);
+          return {
+            latex: `\\frac{${a}}{${b}} > \\frac{${c}}{${d}}`,
+            prompt: 'True or False?',
+            answer: (a * d) > (b * c),
+            answerType: 'TRUE / FALSE'
+          };
+        }
+      },
+      {
+        id: 'PCT',
+        label: 'Percentages',
+        defaultOn: false,
+        generate() {
+          // Construct guaranteed clean integer percentage evaluations
+          const templates = [
+            { p: 5, step: 20 },
+            { p: 10, step: 10 },
+            { p: 15, step: 20 },
+            { p: 20, step: 5 },
+            { p: 25, step: 4 },
+            { p: 30, step: 10 },
+            { p: 40, step: 5 },
+            { p: 75, step: 4 },
+            { p: 120, step: 5 },
+            { p: 150, step: 2 }
+          ];
+          const t = choice(templates);
+          const mult = randInt(2, 16);
+          const base = t.step * mult;
+          const ans = (t.p * base) / 100;
+          return {
+            latex: `${t.p}\\% \\text{ of } ${base}`,
+            prompt: 'Evaluate',
+            answer: ans,
+            answerType: 'INTEGER'
+          };
+        }
+      },
+      {
+        id: 'ALG_LIN',
+        label: 'Linear Eq',
+        defaultOn: true,
+        generate() {
+          const x = randInt(-12, 15);
+          const a = randInt(2, 9);
+          const b = randInt(-20, 20);
+          const c = a * x + b;
+          const bStr = b === 0 ? '' : (b > 0 ? ` + ${b}` : ` - ${Math.abs(b)}`);
+          return {
+            latex: `${a}x${bStr} = ${c}`,
+            prompt: 'Solve for x',
+            answer: x,
+            answerType: 'INTEGER'
+          };
+        }
+      },
+      {
+        id: 'ALG_EXP',
+        label: 'Exponents',
+        defaultOn: true,
+        generate() {
+          const a = randInt(2, 9);
+          const b = randInt(-4, 8);
+          const c = randInt(2, 4);
+          const d = randInt(1, 3);
+          const finalExp = a + b - c * d;
+          return {
+            latex: `\\frac{x^{${a}} \\cdot x^{${b}}}{(x^{${c}})^{${d}}} = x^k`,
+            prompt: 'Exponent k?',
+            answer: finalExp,
+            answerType: 'INTEGER'
+          };
+        }
+      },
+      {
+        id: 'ALG_QUAD',
+        label: 'Quadratics',
+        defaultOn: true,
+        generate() {
+          const mode = choice(['sum', 'prod', 'larger', 'smaller', 'cts']);
+          if (mode === 'cts') {
+            const halfB = choice([-12, -10, -9, -8, -7, -6, -5, -4, -3, 3, 4, 5, 6, 7, 8, 9, 10, 12]);
+            const b = 2 * halfB;
+            const bTerm = b > 0 ? `+ ${b}x` : `- ${Math.abs(b)}x`;
+            return {
+              latex: `x^2 ${bTerm} + c`,
+              prompt: 'Constant c to complete the square?',
+              answer: halfB * halfB,
+              answerType: 'INTEGER'
+            };
+          }
+          let r1 = randInt(-9, 9);
+          let r2 = randInt(-9, 9);
+          while (r1 === r2 || r1 === 0 || r2 === 0) {
+            r2 = randInt(-9, 9);
+          }
+          const b = -(r1 + r2);
+          const c = r1 * r2;
+          const bStr = fmtSigned(b, 'x');
+          const cStr = fmtSigned(c, '');
+          const eq = `x^2${bStr}${cStr} = 0`;
 
-            if (subVariant < 0.4) {
-                const d = randInt(5, 25);
-                return {
-                    key: `off_add_${a}_${b}_${d}`,
-                    html: `${a} <span class="text-slate-500">×</span> ${b} <span class="text-slate-500">+</span> ${d}`,
-                    answer: prod + d
-                };
-            } else if (subVariant < 0.8) {
-                const d = randInt(4, Math.min(25, prod - 3));
-                return {
-                    key: `off_sub_${a}_${b}_${d}`,
-                    html: `${a} <span class="text-slate-500">×</span> ${b} <span class="text-slate-500">−</span> ${d}`,
-                    answer: prod - d
-                };
+          if (mode === 'sum') {
+            return { latex: eq, prompt: 'Sum of roots?', answer: r1 + r2, answerType: 'INTEGER' };
+          }
+          if (mode === 'prod') {
+            return { latex: eq, prompt: 'Product of roots?', answer: r1 * r2, answerType: 'INTEGER' };
+          }
+          if (mode === 'larger') {
+            return { latex: eq, prompt: 'Larger root?', answer: Math.max(r1, r2), answerType: 'INTEGER' };
+          }
+          return { latex: eq, prompt: 'Smaller root?', answer: Math.min(r1, r2), answerType: 'INTEGER' };
+        }
+      },
+      {
+        id: 'ALG_LOG',
+        label: 'Logarithms',
+        defaultOn: true,
+        generate() {
+          const specs = [
+            { base: 2, kMin: -5, kMax: 8 },
+            { base: 3, kMin: -3, kMax: 4 },
+            { base: 4, kMin: -3, kMax: 4 },
+            { base: 5, kMin: -3, kMax: 3 },
+            { base: 10, kMin: -3, kMax: 5 }
+          ];
+          const { base, kMin, kMax } = choice(specs);
+          const k = randInt(kMin, kMax);
+          let argLatex;
+          if (k >= 0) {
+            argLatex = `${Math.pow(base, k)}`;
+          } else {
+            argLatex = `\\frac{1}{${Math.pow(base, Math.abs(k))}}`;
+          }
+          return {
+            latex: `\\log_{${base}}\\left(${argLatex}\\right)`,
+            prompt: 'Evaluate',
+            answer: k,
+            answerType: 'INTEGER'
+          };
+        }
+      },
+      {
+        id: 'GEO_PYTH',
+        label: 'Geometry',
+        defaultOn: false,
+        generate() {
+          const mode = choice(['hyp', 'leg', 'sphere', 'cyl', 'cone']);
+          const triples = [[3, 4, 5], [5, 12, 13], [8, 15, 17], [7, 24, 25]];
+          if (mode === 'hyp' || mode === 'leg') {
+            const [a0, b0, c0] = choice(triples);
+            const scale = randInt(1, 3);
+            const a = a0 * scale, b = b0 * scale, c = c0 * scale;
+            if (mode === 'hyp') {
+              return {
+                latex: `a = ${a},\\; b = ${b}`,
+                prompt: 'Hypotenuse c?',
+                answer: c,
+                answerType: 'INTEGER'
+              };
             } else {
-                // Factored sum/difference: a * (b1 + b2) = a * b
-                const b1 = randInt(2, b - 1);
-                const b2 = b - b1;
-                return {
-                    key: `off_paren_${a}_${b1}_${b2}`,
-                    html: `${a} <span class="text-slate-500">×</span> <span class="text-slate-400">(</span>${b1} <span class="text-slate-500">+</span> ${b2}<span class="text-slate-400">)</span>`,
-                    answer: prod
-                };
+              return {
+                latex: `a = ${a},\\; c = ${c}`,
+                prompt: 'Missing leg b?',
+                answer: b,
+                answerType: 'INTEGER'
+              };
             }
+          }
+          if (mode === 'sphere') {
+            const r = choice([3, 6]);
+            const volDivPi = (4 * Math.pow(r, 3)) / 3;
+            return {
+              latex: `r = ${r}`,
+              prompt: 'Sphere volume divided by π?',
+              answer: volDivPi,
+              answerType: 'INTEGER'
+            };
+          }
+          if (mode === 'cyl') {
+            const r = randInt(2, 6);
+            const h = randInt(2, 8);
+            return {
+              latex: `r = ${r},\\; h = ${h}`,
+              prompt: 'Cylinder volume divided by π?',
+              answer: r * r * h,
+              answerType: 'INTEGER'
+            };
+          }
+          // Cone volume divided by pi: (1/3) r^2 h
+          const r = randInt(2, 6);
+          const h = choice([3, 6, 9, 12]);
+          return {
+            latex: `r = ${r},\\; h = ${h}`,
+            prompt: 'Cone volume divided by π?',
+            answer: (r * r * h) / 3,
+            answerType: 'INTEGER'
+          };
         }
-
-        function nextQuestion() {
-            state.resolving = false;
-            let q;
-            let guard = 0;
-            do {
-                q = generateQuestion();
-                guard++;
-            } while (q.key === state.lastKey && guard < 15);
-
-            state.currentQuestion = q;
-            state.lastKey = q.key;
-
-            const display = document.getElementById('expressionDisplay');
-            display.innerHTML = q.html;
-
-            const input = document.getElementById('answerInput');
-            input.value = '';
-            input.placeholder = '?';
-            input.className = 'w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-100 placeholder-slate-700 focus:outline-none focus:border-slate-500 transition';
-            input.focus();
+      },
+      {
+        id: 'GEO_COORD',
+        label: 'Coords / Conics',
+        defaultOn: false,
+        generate() {
+          const mode = choice(['slope', 'domain', 'circle', 'conic']);
+          if (mode === 'slope') {
+            const m = randInt(-6, 6);
+            const dx = choice([1, 2, 3, 4, 5]);
+            const x1 = randInt(-5, 5);
+            const y1 = randInt(-5, 5);
+            const x2 = x1 + dx;
+            const y2 = y1 + m * dx;
+            return {
+              latex: `(${x1}, ${y1}) \\text{ and } (${x2}, ${y2})`,
+              prompt: 'Slope of line?',
+              answer: m,
+              answerType: 'INTEGER'
+            };
+          }
+          if (mode === 'domain') {
+            const excl = randInt(-9, 9);
+            const b = randInt(2, 6);
+            const c = b * excl;
+            const cStr = c === 0 ? '' : (c > 0 ? ` - ${c}` : ` + ${Math.abs(c)}`);
+            return {
+              latex: `f(x) = \\frac{x + 1}{${b}x${cStr}}`,
+              prompt: 'Excluded value of x?',
+              answer: excl,
+              answerType: 'INTEGER'
+            };
+          }
+          if (mode === 'circle') {
+            const r = randInt(2, 15);
+            const h = randInt(-6, 6);
+            const k = randInt(-6, 6);
+            const hStr = h >= 0 ? `- ${h}` : `+ ${Math.abs(h)}`;
+            const kStr = k >= 0 ? `- ${k}` : `+ ${Math.abs(k)}`;
+            return {
+              latex: `(x ${hStr})^2 + (y ${kStr})^2 = ${r * r}`,
+              prompt: 'Radius of circle?',
+              answer: r,
+              answerType: 'INTEGER'
+            };
+          }
+          // Conic identification
+          const conicType = choice(['circle', 'ellipse', 'parabola', 'hyperbola']);
+          const c = randInt(2, 9);
+          if (conicType === 'circle') {
+            const a = randInt(2, 6);
+            return {
+              latex: `${a}x^2 + ${a}y^2 - ${c}x = 12`,
+              prompt: 'Conic section type?',
+              answer: 'circle',
+              answerType: 'WORD'
+            };
+          }
+          if (conicType === 'ellipse') {
+            const a = randInt(2, 5);
+            const b = a + randInt(1, 4);
+            return {
+              latex: `${a}x^2 + ${b}y^2 + ${c}y = 20`,
+              prompt: 'Conic section type?',
+              answer: 'ellipse',
+              answerType: 'WORD'
+            };
+          }
+          if (conicType === 'hyperbola') {
+            const a = randInt(2, 6);
+            const b = randInt(2, 6);
+            return {
+              latex: `${a}x^2 - ${b}y^2 + ${c}x = 15`,
+              prompt: 'Conic section type?',
+              answer: 'hyperbola',
+              answerType: 'WORD'
+            };
+          }
+          const a = randInt(2, 6);
+          return {
+            latex: `y = ${a}x^2 - ${c}x + 4`,
+            prompt: 'Conic section type?',
+            answer: 'parabola',
+            answerType: 'WORD'
+          };
         }
-
-        function triggerSuccess() {
-            if (state.resolving) return;
-            state.resolving = true;
-
-            const input = document.getElementById('answerInput');
-            input.value = state.currentQuestion.answer;
-            input.className = 'w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-emerald-950/40 border border-emerald-500/60 text-emerald-300 transition';
-
-            if (recognition && state.isListening) {
-                try { recognition.abort(); } catch (e) {}
-            }
-
-            setTimeout(() => {
-                nextQuestion();
-            }, 180);
+      },
+      {
+        id: 'TRIG_CONV',
+        label: 'Radians / Deg',
+        defaultOn: true,
+        generate() {
+          const angles = [
+            { deg: 30, num: 1, den: 6, radLatex: '\\frac{\\pi}{6}' },
+            { deg: 45, num: 1, den: 4, radLatex: '\\frac{\\pi}{4}' },
+            { deg: 60, num: 1, den: 3, radLatex: '\\frac{\\pi}{3}' },
+            { deg: 90, num: 1, den: 2, radLatex: '\\frac{\\pi}{2}' },
+            { deg: 120, num: 2, den: 3, radLatex: '\\frac{2\\pi}{3}' },
+            { deg: 135, num: 3, den: 4, radLatex: '\\frac{3\\pi}{4}' },
+            { deg: 150, num: 5, den: 6, radLatex: '\\frac{5\\pi}{6}' },
+            { deg: 180, num: 1, den: 1, radLatex: '\\pi' },
+            { deg: 210, num: 7, den: 6, radLatex: '\\frac{7\\pi}{6}' },
+            { deg: 225, num: 5, den: 4, radLatex: '\\frac{5\\pi}{4}' },
+            { deg: 240, num: 4, den: 3, radLatex: '\\frac{4\\pi}{3}' },
+            { deg: 270, num: 3, den: 2, radLatex: '\\frac{3\\pi}{2}' },
+            { deg: 300, num: 5, den: 3, radLatex: '\\frac{5\\pi}{3}' },
+            { deg: 315, num: 7, den: 4, radLatex: '\\frac{7\\pi}{4}' },
+            { deg: 330, num: 11, den: 6, radLatex: '\\frac{11\\pi}{6}' }
+          ];
+          const item = choice(angles);
+          if (Math.random() < 0.65 || item.den === 1) {
+            return {
+              latex: item.radLatex,
+              prompt: 'Convert to degrees',
+              answer: item.deg,
+              answerType: 'INTEGER'
+            };
+          } else {
+            return {
+              latex: `${item.deg}^\\circ = \\frac{k\\pi}{${item.den}}`,
+              prompt: 'Numerator k?',
+              answer: item.num,
+              answerType: 'INTEGER'
+            };
+          }
         }
-
-        function triggerSkip() {
-            if (state.resolving) return;
-            state.resolving = true;
-
-            const input = document.getElementById('answerInput');
-            input.value = state.currentQuestion.answer;
-            input.className = 'w-40 text-center font-mono text-3xl sm:text-4xl py-2.5 px-4 rounded-xl bg-amber-950/30 border border-amber-500/50 text-amber-300 transition';
-
-            if (recognition && state.isListening) {
-                try { recognition.abort(); } catch (e) {}
-            }
-
-            setTimeout(() => {
-                nextQuestion();
-            }, 750);
+      },
+      {
+        id: 'TRIG_PRECALC',
+        label: 'Trig / Pre-Calc',
+        defaultOn: true,
+        generate() {
+          const mode = choice(['val', 'sign', 'inv', 'id', 'parity', 'asymp']);
+          if (mode === 'val') {
+            const items = [
+              { latex: '4\\sin^2(\\pi/3)', ans: 3 },
+              { latex: '4\\cos^2(\\pi/6)', ans: 3 },
+              { latex: '2\\sin^2(\\pi/4)', ans: 1 },
+              { latex: '2\\cos^2(\\pi/4)', ans: 1 },
+              { latex: '4\\sin^2(\\pi/6)', ans: 1 },
+              { latex: '3\\tan^2(\\pi/6)', ans: 1 },
+              { latex: '\\tan^2(\\pi/3)', ans: 3 },
+              { latex: '\\cos(\\pi)', ans: -1 },
+              { latex: '\\sin(3\\pi/2)', ans: -1 },
+              { latex: '\\tan(\\pi/4)', ans: 1 },
+              { latex: '\\sec^2(\\pi/4)', ans: 2 }
+            ];
+            const item = choice(items);
+            return {
+              latex: item.latex,
+              prompt: 'Exact value?',
+              answer: item.ans,
+              answerType: 'INTEGER'
+            };
+          }
+          if (mode === 'sign') {
+            const checks = [
+              { latex: '\\cos(5\\pi/4) > 0', ans: false },
+              { latex: '\\sin(5\\pi/6) > 0', ans: true },
+              { latex: '\\tan(3\\pi/4) < 0', ans: true },
+              { latex: '\\cos(7\\pi/4) > 0', ans: true },
+              { latex: '\\sin(4\\pi/3) > 0', ans: false },
+              { latex: '\\tan(5\\pi/4) > 0', ans: true }
+            ];
+            const item = choice(checks);
+            return {
+              latex: item.latex,
+              prompt: 'True or False?',
+              answer: item.ans,
+              answerType: 'TRUE / FALSE'
+            };
+          }
+          if (mode === 'inv') {
+            const invs = [
+              { latex: '\\arcsin(1/2)', ans: 30 },
+              { latex: '\\arcsin(-1/2)', ans: -30 },
+              { latex: '\\arccos(1/2)', ans: 60 },
+              { latex: '\\arccos(-1)', ans: 180 },
+              { latex: '\\arctan(1)', ans: 45 },
+              { latex: '\\arctan(-1)', ans: -45 },
+              { latex: '\\arcsin(1)', ans: 90 }
+            ];
+            const item = choice(invs);
+            return {
+              latex: item.latex,
+              prompt: 'Principal value in degrees?',
+              answer: item.ans,
+              answerType: 'INTEGER'
+            };
+          }
+          if (mode === 'id') {
+            const ids = [
+              { latex: '1 + \\tan^2(x) = \\text{?}^2(x)', ans: 'secant' },
+              { latex: '1 - \\cos^2(x) = \\text{?}^2(x)', ans: 'sine' },
+              { latex: '1 - \\sin^2(x) = \\text{?}^2(x)', ans: 'cosine' },
+              { latex: '\\sin\\left(\\frac{\\pi}{2} - x\\right) = \\text{?}(x)', ans: 'cosine' },
+              { latex: '\\cos\\left(\\frac{\\pi}{2} - x\\right) = \\text{?}(x)', ans: 'sine' },
+              { latex: '\\frac{\\sin(x)}{\\cos(x)} = \\text{?}(x)', ans: 'tangent' }
+            ];
+            const item = choice(ids);
+            return {
+              latex: item.latex,
+              prompt: 'Trig function name?',
+              answer: item.ans,
+              answerType: 'WORD'
+            };
+          }
+          if (mode === 'parity') {
+            const funcs = [
+              { latex: 'f(x) = x^4 - 3x^2 + 2', ans: 'even' },
+              { latex: 'f(x) = x^3 - 5x', ans: 'odd' },
+              { latex: 'f(x) = \\cos(x)', ans: 'even' },
+              { latex: 'f(x) = \\sin(x)', ans: 'odd' },
+              { latex: 'f(x) = x^3 + x^2', ans: 'neither' },
+              { latex: 'f(x) = x^2 + 4x', ans: 'neither' }
+            ];
+            const item = choice(funcs);
+            return {
+              latex: item.latex,
+              prompt: 'Even, odd, or neither?',
+              answer: item.ans,
+              answerType: 'WORD'
+            };
+          }
+          // Horizontal asymptote
+          const ratio = choice([-5, -4, -3, -2, 2, 3, 4, 5, 6]);
+          const d = randInt(2, 5);
+          const n = ratio * d;
+          return {
+            latex: `f(x) = \\frac{${n}x^2 + 3}{${d}x^2 - 7}`,
+            prompt: 'Horizontal asymptote y = ?',
+            answer: ratio,
+            answerType: 'INTEGER'
+          };
         }
+      }
+    ];
 
-        /********************************************************************
-         * 3. SILENT SPEECH RECOGNITION (OPTIONAL INPUT ONLY — NO TTS)
-         ********************************************************************/
-        const NUMBER_WORDS = {
-            'zero': 0, 'oh': 0, 'one': 1, 'won': 1, 'two': 2, 'to': 2, 'too': 2,
-            'three': 3, 'tree': 3, 'four': 4, 'for': 4, 'fore': 4, 'five': 5,
-            'six': 6, 'sex': 6, 'seven': 7, 'eight': 8, 'ate': 8, 'nine': 9,
-            'ten': 10, 'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
-            'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19
+    /********************************************************************
+     * 3. PHONETIC NORMALIZER & SPOKEN MATH PARSER
+     ********************************************************************/
+    const WORD_TO_NUM = {
+      'zero': 0, 'oh': 0, 'nought': 0, 'nil': 0,
+      'one': 1, 'won': 1,
+      'two': 2, 'to': 2, 'too': 2,
+      'three': 3, 'tree': 3,
+      'four': 4, 'for': 4, 'fore': 4,
+      'five': 5,
+      'six': 6, 'sicks': 6,
+      'seven': 7,
+      'eight': 8, 'ate': 8,
+      'nine': 9, 'nein': 9,
+      'ten': 10,
+      'eleven': 11,
+      'twelve': 12,
+      'thirteen': 13,
+      'fourteen': 14,
+      'fifteen': 15,
+      'sixteen': 16,
+      'seventeen': 17,
+      'eighteen': 18,
+      'nineteen': 19,
+      'twenty': 20,
+      'thirty': 30,
+      'forty': 40, 'fourty': 40,
+      'fifty': 50,
+      'sixty': 60,
+      'seventy': 70,
+      'eighty': 80,
+      'ninety': 90
+    };
+
+    const CANONICAL_WORDS = {
+      // Conics
+      'circle': 'circle',
+      'ellipse': 'ellipse', 'lips': 'ellipse', 'clips': 'ellipse',
+      'parabola': 'parabola',
+      'hyperbola': 'hyperbola',
+      // Trig functions
+      'sine': 'sine', 'sign': 'sine', 'sin': 'sine',
+      'cosine': 'cosine', 'cosign': 'cosine', 'co-sign': 'cosine', 'cos': 'cosine',
+      'tangent': 'tangent', 'tan': 'tangent',
+      'secant': 'secant', 'sec': 'secant',
+      'cosecant': 'cosecant', 'csc': 'cosecant',
+      'cotangent': 'cotangent', 'cot': 'cotangent',
+      // Parity
+      'even': 'even',
+      'odd': 'odd',
+      'neither': 'neither'
+    };
+
+    const BOOLEAN_WORDS = {
+      'true': true, 'yes': true, 'correct': true, 'yeah': true, 'yep': true,
+      'false': false, 'no': false, 'incorrect': false, 'nope': false, 'faults': false, 'falls': false
+    };
+
+    /**
+     * Parses spoken number phrases or digit strings into an array of candidate integers.
+     * Supports negative prefixes ("minus", "negative") and compound spoken numbers up to 1000.
+     */
+    function extractIntegersFromUtterance(rawText) {
+      const cleaned = rawText
+        .toLowerCase()
+        .replace(/,/g, '')
+        .replace(/[^\w\s-]/g, ' ')
+        .trim();
+
+      if (!cleaned) return [];
+
+      const candidates = new Set();
+
+      // 1. Direct digit matches (including "-42" or "minus 42" or "negative 42")
+      const digitRegex = /(?:(minus|negative)\s+)?(-?\d+)/g;
+      let match;
+      while ((match = digitRegex.exec(cleaned)) !== null) {
+        let val = parseInt(match[2], 10);
+        if (!Number.isNaN(val)) {
+          if (match[1] && val > 0) val = -val;
+          candidates.add(val);
+        }
+      }
+
+      // 2. Spoken word sequence parser
+      const tokens = cleaned.split(/\s+/);
+      let sign = 1;
+      let current = 0;
+      let acc = 0;
+      let hasNumberToken = false;
+
+      const flush = () => {
+        if (hasNumberToken) {
+          candidates.add(sign * (acc + current));
+        }
+        sign = 1;
+        current = 0;
+        acc = 0;
+        hasNumberToken = false;
+      };
+
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t === 'minus' || t === 'negative') {
+          if (hasNumberToken) flush();
+          sign = -1;
+          continue;
+        }
+        if (t === 'and') continue;
+
+        if (Object.prototype.hasOwnProperty.call(WORD_TO_NUM, t)) {
+          const val = WORD_TO_NUM[t];
+          current += val;
+          hasNumberToken = true;
+          candidates.add(sign * (acc + current));
+        } else if (t === 'hundred') {
+          if (current === 0) current = 1;
+          current *= 100;
+          hasNumberToken = true;
+          candidates.add(sign * (acc + current));
+        } else if (t === 'thousand') {
+          if (current === 0) current = 1;
+          acc += current * 1000;
+          current = 0;
+          hasNumberToken = true;
+          candidates.add(sign * acc);
+        } else if (/^-?\d+$/.test(t)) {
+          const dVal = parseInt(t, 10);
+          candidates.add(sign < 0 && dVal > 0 ? -dVal : dVal);
+          flush();
+        } else {
+          flush();
+        }
+      }
+      flush();
+
+      return Array.from(candidates);
+    }
+
+    /**
+     * Checks whether a spoken or typed string matches the active problem's expected answer
+     * or triggers a voice command ("skip", "reveal").
+     */
+    function evaluateUtterance(text, activeQuestion) {
+      const lower = text.toLowerCase().trim();
+      if (!lower) return { type: 'NONE' };
+
+      const words = lower.replace(/[^\w\s-]/g, ' ').split(/\s+/).filter(Boolean);
+
+      // Check voice commands first on recent words
+      const recentWords = words.slice(-4);
+      if (recentWords.some(w => w === 'skip' || w === 'pass' || w === 'next')) {
+        return { type: 'COMMAND_SKIP' };
+      }
+      if (recentWords.some(w => w === 'reveal' || w === 'answer' || w === 'help')) {
+        return { type: 'COMMAND_REVEAL' };
+      }
+
+      if (!activeQuestion) return { type: 'NONE' };
+
+      // 1. INTEGER Answer Matching
+      if (activeQuestion.answerType === 'INTEGER') {
+        const nums = extractIntegersFromUtterance(lower);
+        const latestNum = nums.length > 0 ? nums[nums.length - 1] : null;
+        if (nums.includes(activeQuestion.answer)) {
+          return {
+            type: 'MATCH',
+            matchedDisplay: String(activeQuestion.answer),
+            preview: String(activeQuestion.answer)
+          };
+        }
+        return {
+          type: 'NO_MATCH',
+          preview: latestNum !== null ? String(latestNum) : ''
         };
-        const TENS_WORDS = {
-            'twenty': 20, 'thirty': 30, 'forty': 40, 'fourty': 40,
-            'fifty': 50, 'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90
+      }
+
+      // 2. TRUE / FALSE Answer Matching
+      if (activeQuestion.answerType === 'TRUE / FALSE') {
+        let latestBool = null;
+        for (const w of words) {
+          if (Object.prototype.hasOwnProperty.call(BOOLEAN_WORDS, w)) {
+            latestBool = BOOLEAN_WORDS[w];
+            if (latestBool === activeQuestion.answer) {
+              return {
+                type: 'MATCH',
+                matchedDisplay: latestBool ? 'True' : 'False',
+                preview: latestBool ? 'True' : 'False'
+              };
+            }
+          }
+        }
+        return {
+          type: 'NO_MATCH',
+          preview: latestBool !== null ? (latestBool ? 'True' : 'False') : ''
         };
+      }
 
-        function parseSpokenCandidates(transcript) {
-            if (!transcript) return [];
-            const out = new Set();
-            const cleaned = transcript.toLowerCase().replace(/[-]/g, ' ').replace(/[^a-z0-9\s]/g, ' ').trim();
-            if (!cleaned) return [];
-
-            const rawDigits = cleaned.match(/\b\d+\b/g);
-            if (rawDigits) rawDigits.forEach(d => out.add(parseInt(d, 10)));
-
-            const tokens = cleaned.split(/\s+/).filter(w => w !== 'and');
-            const nums = [];
-            for (const w of tokens) {
-                if (/^\d+$/.test(w)) nums.push({ t: 'd', v: parseInt(w, 10) });
-                else if (w in NUMBER_WORDS) nums.push({ t: 'u', v: NUMBER_WORDS[w] });
-                else if (w in TENS_WORDS) nums.push({ t: 't', v: TENS_WORDS[w] });
-                else if (w === 'hundred') nums.push({ t: 'h', v: 100 });
+      // 3. WORD Answer Matching
+      if (activeQuestion.answerType === 'WORD') {
+        let latestWord = '';
+        for (const w of words) {
+          if (Object.prototype.hasOwnProperty.call(CANONICAL_WORDS, w)) {
+            latestWord = CANONICAL_WORDS[w];
+            if (latestWord === activeQuestion.answer) {
+              return {
+                type: 'MATCH',
+                matchedDisplay: latestWord,
+                preview: latestWord
+              };
             }
-
-            for (let i = 0; i < nums.length; i++) {
-                const c = nums[i];
-                out.add(c.v);
-                if (c.t === 't' && i + 1 < nums.length && nums[i + 1].v <= 9) {
-                    out.add(c.v + nums[i + 1].v);
-                }
-                if (c.v === 1 && i + 1 < nums.length && nums[i + 1].t === 'h') {
-                    out.add(100);
-                    if (i + 2 < nums.length) {
-                        const n2 = nums[i + 2];
-                        out.add(100 + n2.v);
-                        if (n2.t === 't' && i + 3 < nums.length && nums[i + 3].v <= 9) {
-                            out.add(100 + n2.v + nums[i + 3].v);
-                        }
-                    }
-                }
-            }
-            return Array.from(out);
+          }
         }
+        return {
+          type: 'NO_MATCH',
+          preview: latestWord
+        };
+      }
 
-        const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = null;
+      return { type: 'NONE' };
+    }
 
-        function initMic() {
-            if (!SpeechRecognitionAPI) {
-                document.getElementById('micToggleBtn').classList.add('hidden');
-                return;
-            }
-            recognition = new SpeechRecognitionAPI();
-            recognition.lang = 'en-US';
-            recognition.continuous = true;
-            recognition.interimResults = true;
+    /********************************************************************
+     * 4. APPLICATION STATE & UI CONTROLLER
+     ********************************************************************/
+    const state = {
+      activeCategories: new Set(CATEGORIES.filter(c => c.defaultOn).map(c => c.id)),
+      currentQuestion: null,
+      isTransitioning: false,
+      lastMatchTimestamp: 0,
+      consumedResultIndex: -1,
+      consumedTranscriptLength: 0,
+      micListening: false,
+      recognition: null
+    };
 
-            recognition.onstart = () => {
-                state.isListening = true;
-                updateMicUI();
-            };
+    // DOM Elements
+    const micToggleBtn = document.getElementById('micToggleBtn');
+    const micDot = document.getElementById('micDot');
+    const micBtnLabel = document.getElementById('micBtnLabel');
+    const liveTranscript = document.getElementById('liveTranscript');
+    const parsedPreview = document.getElementById('parsedPreview');
+    const stageCard = document.getElementById('stageCard');
+    const categoryBadge = document.getElementById('categoryBadge');
+    const answerTypeBadge = document.getElementById('answerTypeBadge');
+    const mathContainer = document.getElementById('mathContainer');
+    const promptText = document.getElementById('promptText');
+    const feedbackBadge = document.getElementById('feedbackBadge');
+    const manualInput = document.getElementById('manualInput');
+    const skipBtn = document.getElementById('skipBtn');
+    const revealBtn = document.getElementById('revealBtn');
+    const categoryGrid = document.getElementById('categoryGrid');
+    const allOnBtn = document.getElementById('allOnBtn');
+    const allOffBtn = document.getElementById('allOffBtn');
+    const resetCoreBtn = document.getElementById('resetCoreBtn');
 
-            recognition.onresult = (event) => {
-                if (state.resolving || !state.currentQuestion) return;
-                let text = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    for (let j = 0; j < event.results[i].length; j++) {
-                        text += ' ' + event.results[i][j].transcript;
-                    }
-                }
-                const latest = event.results[event.results.length - 1][0].transcript.trim();
-                document.getElementById('heardPreview').textContent = latest;
+    function renderCategoryPills() {
+      categoryGrid.innerHTML = '';
+      CATEGORIES.forEach(cat => {
+        const isActive = state.activeCategories.has(cat.id);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = isActive
+          ? 'px-2.5 py-1 rounded-md text-xs font-mono border transition-all bg-zinc-100 text-zinc-950 border-zinc-100 font-medium'
+          : 'px-2.5 py-1 rounded-md text-xs font-mono border transition-all bg-zinc-900/60 text-zinc-500 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300';
+        btn.textContent = cat.label;
+        btn.addEventListener('click', () => {
+          const wasEmpty = state.activeCategories.size === 0;
+          if (state.activeCategories.has(cat.id)) {
+            state.activeCategories.delete(cat.id);
+          } else {
+            state.activeCategories.add(cat.id);
+          }
+          renderCategoryPills();
 
-                if (/\b(skip|pass|next)\b/i.test(text)) {
-                    triggerSkip();
-                    return;
-                }
-
-                const candidates = parseSpokenCandidates(text);
-                if (candidates.includes(state.currentQuestion.answer)) {
-                    triggerSuccess();
-                }
-            };
-
-            recognition.onend = () => {
-                state.isListening = false;
-                if (state.micEnabled) {
-                    try { recognition.start(); } catch (e) {}
-                } else {
-                    updateMicUI();
-                }
-            };
-        }
-
-        function updateMicUI() {
-            const btn = document.getElementById('micToggleBtn');
-            const dot = document.getElementById('micDot');
-            const label = document.getElementById('micLabel');
-            const preview = document.getElementById('heardPreview');
-
-            if (state.micEnabled) {
-                btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/40 bg-emerald-950/30 text-emerald-300 transition flex items-center gap-2';
-                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-                label.textContent = 'Mic Listening';
-                preview.classList.remove('hidden');
-            } else {
-                btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition flex items-center gap-2';
-                dot.className = 'w-2 h-2 rounded-full bg-slate-600';
-                label.textContent = 'Mic Off';
-                preview.classList.add('hidden');
-                preview.textContent = '';
-            }
-        }
-
-        /********************************************************************
-         * 4. UI WIRING
-         ********************************************************************/
-        function renderModePills() {
-            document.querySelectorAll('.mode-pill').forEach(btn => {
-                const mode = btn.getAttribute('data-mode');
-                const active = state.modes.has(mode);
-                btn.className = `mode-pill px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
-                    active
-                        ? 'bg-slate-800 border-slate-600 text-slate-100'
-                        : 'bg-transparent border-slate-800/80 text-slate-500 hover:text-slate-300'
-                }`;
-            });
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            renderModePills();
-            initMic();
+          if (state.activeCategories.size === 0) {
             nextQuestion();
-
-            // Mode filter pills
-            document.querySelectorAll('.mode-pill').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const mode = btn.getAttribute('data-mode');
-                    if (state.modes.has(mode)) {
-                        if (state.modes.size > 1) state.modes.delete(mode);
-                    } else {
-                        state.modes.add(mode);
-                    }
-                    renderModePills();
-                    nextQuestion();
-                });
-            });
-
-            // Instant check on numeric input
-            const answerInput = document.getElementById('answerInput');
-            answerInput.addEventListener('input', () => {
-                if (state.resolving) return;
-                const val = parseInt(answerInput.value.trim(), 10);
-                if (!isNaN(val) && val === state.currentQuestion.answer) {
-                    triggerSuccess();
-                }
-            });
-
-            // Spacebar to skip/reveal, keep input focused
-            window.addEventListener('keydown', (e) => {
-                if (e.code === 'Space') {
-                    e.preventDefault();
-                    triggerSkip();
-                } else if (document.activeElement !== answerInput && !e.metaKey && !e.ctrlKey) {
-                    answerInput.focus();
-                }
-            });
-
-            document.getElementById('skipBtn').addEventListener('click', () => {
-                triggerSkip();
-            });
-
-            // Optional silent mic toggle
-            document.getElementById('micToggleBtn').addEventListener('click', () => {
-                state.micEnabled = !state.micEnabled;
-                updateMicUI();
-                if (state.micEnabled && recognition) {
-                    try { recognition.start(); } catch (e) {}
-                } else if (recognition) {
-                    try { recognition.stop(); } catch (e) {}
-                }
-                answerInput.focus();
-            });
+          } else if (wasEmpty || (state.currentQuestion && !state.activeCategories.has(state.currentQuestion.categoryId))) {
+            nextQuestion();
+          }
         });
-    </script>
+        categoryGrid.appendChild(btn);
+      });
+    }
+
+    function nextQuestion() {
+      const enabled = CATEGORIES.filter(c => state.activeCategories.has(c.id));
+      if (enabled.length === 0) {
+        state.currentQuestion = null;
+        state.isTransitioning = false;
+        categoryBadge.textContent = 'STANDBY';
+        answerTypeBadge.textContent = 'NONE';
+        mathContainer.innerHTML = '<span class="text-xl sm:text-2xl font-mono text-zinc-500">No categories selected</span>';
+        promptText.textContent = 'Select at least one category below to begin drilling.';
+        manualInput.value = '';
+        return;
+      }
+
+      const chosenCat = choice(enabled);
+      const q = chosenCat.generate();
+      q.categoryId = chosenCat.id;
+      q.categoryLabel = chosenCat.label;
+      state.currentQuestion = q;
+      state.isTransitioning = false;
+
+      // Update Metadata Badges
+      categoryBadge.textContent = q.categoryLabel;
+      answerTypeBadge.textContent = q.answerType;
+
+      // Render KaTeX
+      try {
+        katex.render(q.latex, mathContainer, {
+          displayMode: true,
+          throwOnError: false
+        });
+      } catch (err) {
+        mathContainer.textContent = q.latex;
+      }
+
+      promptText.textContent = q.prompt;
+      manualInput.value = '';
+    }
+
+    function triggerCorrectTransition(matchedStr) {
+      if (state.isTransitioning) return;
+      state.isTransitioning = true;
+      state.lastMatchTimestamp = performance.now();
+
+      // Flash stage border and show matched value
+      stageCard.classList.remove('border-zinc-900', 'bg-zinc-950');
+      stageCard.classList.add('border-emerald-500/80', 'bg-emerald-950/20');
+
+      feedbackBadge.textContent = `✓ ${matchedStr}`;
+      feedbackBadge.className = 'px-3 py-0.5 rounded-full text-xs font-mono tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 opacity-100 transition-opacity duration-75';
+
+      setTimeout(() => {
+        stageCard.classList.remove('border-emerald-500/80', 'bg-emerald-950/20');
+        stageCard.classList.add('border-zinc-900', 'bg-zinc-950');
+        feedbackBadge.classList.replace('opacity-100', 'opacity-0');
+        nextQuestion();
+      }, 150);
+    }
+
+    function triggerRevealTransition() {
+      if (state.isTransitioning || !state.currentQuestion) return;
+      state.isTransitioning = true;
+      state.lastMatchTimestamp = performance.now();
+
+      const ansDisplay = typeof state.currentQuestion.answer === 'boolean'
+        ? (state.currentQuestion.answer ? 'True' : 'False')
+        : String(state.currentQuestion.answer);
+
+      stageCard.classList.remove('border-zinc-900', 'bg-zinc-950');
+      stageCard.classList.add('border-amber-500/70', 'bg-amber-950/15');
+
+      feedbackBadge.textContent = `Answer: ${ansDisplay}`;
+      feedbackBadge.className = 'px-3 py-0.5 rounded-full text-xs font-mono tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 opacity-100 transition-opacity duration-75';
+
+      setTimeout(() => {
+        stageCard.classList.remove('border-amber-500/70', 'bg-amber-950/15');
+        stageCard.classList.add('border-zinc-900', 'bg-zinc-950');
+        feedbackBadge.classList.replace('opacity-100', 'opacity-0');
+        nextQuestion();
+      }, 650);
+    }
+
+    /********************************************************************
+     * 5. WEB SPEECH API ENGINE (ZERO-WAIT INTERIM EVALUATION)
+     ********************************************************************/
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        micBtnLabel.textContent = 'Voice Unsupported';
+        micToggleBtn.disabled = true;
+        liveTranscript.textContent = 'Web Speech API unavailable in this browser. Use keyboard input below.';
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.maxAlternatives = 3;
+
+      recognition.onstart = () => {
+        state.micListening = true;
+        micDot.className = 'w-2 h-2 rounded-full bg-emerald-400 mic-active-dot';
+        micBtnLabel.textContent = 'Listening';
+        micToggleBtn.classList.replace('border-zinc-800', 'border-emerald-500/50');
+        liveTranscript.textContent = 'Listening for answer...';
+      };
+
+      recognition.onresult = (event) => {
+        const now = performance.now();
+        // 350ms cooldown after a match so residual syllables don't trigger on the new question
+        if (now - state.lastMatchTimestamp < 350 || state.isTransitioning) {
+          const latestIdx = event.results.length - 1;
+          state.consumedResultIndex = latestIdx;
+          state.consumedTranscriptLength = event.results[latestIdx][0].transcript.length;
+          return;
+        }
+
+        const latestIdx = event.results.length - 1;
+        const resultItem = event.results[latestIdx];
+        const rawTranscript = resultItem[0].transcript;
+
+        // Slice out any portion of the current continuous result block that was already consumed
+        let unconsumed = rawTranscript;
+        if (latestIdx === state.consumedResultIndex) {
+          unconsumed = rawTranscript.slice(state.consumedTranscriptLength);
+        } else {
+          state.consumedResultIndex = -1;
+          state.consumedTranscriptLength = 0;
+        }
+
+        const displayStr = unconsumed.trim() || rawTranscript.trim();
+        if (displayStr) {
+          liveTranscript.textContent = `"${displayStr}"`;
+        }
+
+        // Evaluate across all provided recognition alternatives for maximum homophone resilience
+        for (let altIdx = 0; altIdx < resultItem.length; altIdx++) {
+          const altRaw = resultItem[altIdx].transcript;
+          const altUnconsumed = (latestIdx === state.consumedResultIndex)
+            ? altRaw.slice(state.consumedTranscriptLength)
+            : altRaw;
+
+          // Only evaluate the trailing window of words so old mistakes don't block new words
+          const trailingWords = altUnconsumed.trim().split(/\s+/).slice(-4).join(' ');
+          const outcome = evaluateUtterance(trailingWords, state.currentQuestion);
+
+          if (altIdx === 0) {
+            if (outcome.preview) {
+              parsedPreview.textContent = `→ ${outcome.preview}`;
+              parsedPreview.classList.remove('hidden');
+            } else {
+              parsedPreview.classList.add('hidden');
+            }
+          }
+
+          if (outcome.type === 'COMMAND_SKIP') {
+            state.consumedResultIndex = latestIdx;
+            state.consumedTranscriptLength = rawTranscript.length;
+            state.lastMatchTimestamp = performance.now();
+            nextQuestion();
+            return;
+          }
+
+          if (outcome.type === 'COMMAND_REVEAL') {
+            state.consumedResultIndex = latestIdx;
+            state.consumedTranscriptLength = rawTranscript.length;
+            triggerRevealTransition();
+            return;
+          }
+
+          if (outcome.type === 'MATCH') {
+            state.consumedResultIndex = latestIdx;
+            state.consumedTranscriptLength = rawTranscript.length;
+            triggerCorrectTransition(outcome.matchedDisplay);
+            return;
+          }
+        }
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          state.micListening = false;
+          micDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+          micBtnLabel.textContent = 'Mic Blocked';
+          liveTranscript.textContent = 'Microphone permission denied. Type answers below.';
+        }
+      };
+
+      recognition.onend = () => {
+        // Auto-restart continuous session if user did not manually pause
+        if (state.micListening) {
+          try {
+            state.consumedResultIndex = -1;
+            state.consumedTranscriptLength = 0;
+            recognition.start();
+          } catch (e) {
+            // Ignore race condition on rapid restart
+          }
+        } else {
+          micDot.className = 'w-2 h-2 rounded-full bg-zinc-500';
+          micBtnLabel.textContent = 'Start Mic';
+          micToggleBtn.classList.replace('border-emerald-500/50', 'border-zinc-800');
+        }
+      };
+
+      state.recognition = recognition;
+    }
+
+    function toggleMicrophone() {
+      if (!state.recognition) {
+        initSpeechRecognition();
+      }
+      if (!state.recognition) return;
+
+      if (state.micListening) {
+        state.micListening = false;
+        state.recognition.stop();
+        liveTranscript.textContent = 'Microphone paused.';
+        parsedPreview.classList.add('hidden');
+      } else {
+        try {
+          state.consumedResultIndex = -1;
+          state.consumedTranscriptLength = 0;
+          state.recognition.start();
+        } catch (err) {
+          // Already started
+        }
+      }
+    }
+
+    /********************************************************************
+     * 6. KEYBOARD & BUTTON EVENT WIRING
+     ********************************************************************/
+    micToggleBtn.addEventListener('click', toggleMicrophone);
+
+    skipBtn.addEventListener('click', () => {
+      nextQuestion();
+    });
+
+    revealBtn.addEventListener('click', () => {
+      triggerRevealTransition();
+    });
+
+    allOnBtn.addEventListener('click', () => {
+      const wasEmpty = state.activeCategories.size === 0;
+      CATEGORIES.forEach(c => state.activeCategories.add(c.id));
+      renderCategoryPills();
+      if (wasEmpty || !state.currentQuestion) {
+        nextQuestion();
+      }
+    });
+
+    allOffBtn.addEventListener('click', () => {
+      state.activeCategories.clear();
+      renderCategoryPills();
+      nextQuestion();
+    });
+
+    resetCoreBtn.addEventListener('click', () => {
+      state.activeCategories.clear();
+      CATEGORIES.filter(c => c.defaultOn).forEach(c => state.activeCategories.add(c.id));
+      renderCategoryPills();
+      nextQuestion();
+    });
+
+    // Zero-wait evaluation on manual typing fallback
+    manualInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (val.endsWith('?')) {
+        manualInput.value = '';
+        triggerRevealTransition();
+        return;
+      }
+      const outcome = evaluateUtterance(val, state.currentQuestion);
+      if (outcome.type === 'COMMAND_SKIP') {
+        manualInput.value = '';
+        nextQuestion();
+      } else if (outcome.type === 'COMMAND_REVEAL') {
+        manualInput.value = '';
+        triggerRevealTransition();
+      } else if (outcome.type === 'MATCH') {
+        triggerCorrectTransition(outcome.matchedDisplay);
+      }
+    });
+
+    // Global keyboard shortcuts so user doesn't even have to focus the input box
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        nextQuestion();
+        return;
+      }
+      if (e.key === '?') {
+        e.preventDefault();
+        triggerRevealTransition();
+        return;
+      }
+      // Automatically route character typing to manualInput if not already focused
+      if (
+        document.activeElement !== manualInput &&
+        !e.metaKey && !e.ctrlKey && !e.altKey &&
+        e.key.length === 1
+      ) {
+        manualInput.focus();
+      }
+    });
+
+    // Initialize App on Load
+    window.addEventListener('DOMContentLoaded', () => {
+      renderCategoryPills();
+      nextQuestion();
+      initSpeechRecognition();
+    });
+  </script>
 </body>
 </html>
