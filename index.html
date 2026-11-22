@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mental Math & Pre-Calc — Voice Trainer</title>
+  <title>Mental Math & Pre-Calc — Trainer</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -41,56 +41,17 @@
       background: #27272a;
       border-radius: 2px;
     }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
-    }
-    .mic-active-dot {
-      animation: pulse-dot 1.4s infinite ease-in-out;
-    }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 h-screen w-screen overflow-hidden flex flex-col justify-between select-none antialiased">
 
-  <!-- 1. TOP BAR: Voice Engine Status & Commands -->
-  <header class="w-full border-b border-zinc-900 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 bg-zinc-950/90 z-10">
-    <!-- Left: Mic Button + Live Raw Transcript -->
-    <div class="flex items-center gap-3 min-w-0 flex-1">
-      <button
-        id="micToggleBtn"
-        type="button"
-        class="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-all duration-150 bg-zinc-900 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white focus:outline-none"
-      >
-        <span id="micDot" class="w-2 h-2 rounded-full bg-zinc-500"></span>
-        <span id="micBtnLabel">Start Mic</span>
-      </button>
-
-      <!-- Live Interim Transcript Feed -->
-      <div class="flex items-center gap-2 min-w-0 flex-1 bg-zinc-900/60 border border-zinc-800/80 rounded-lg px-3 py-1.5 overflow-hidden">
-        <span class="text-[11px] font-mono uppercase tracking-wider text-zinc-500 shrink-0">Heard:</span>
-        <span id="liveTranscript" class="text-xs font-mono text-zinc-300 truncate">
-          Click "Start Mic" or type answer directly...
-        </span>
-        <span id="parsedPreview" class="ml-auto text-[11px] font-mono text-emerald-400/90 shrink-0 hidden"></span>
-      </div>
-    </div>
-
-    <!-- Right: Voice Command Reminders & Audio Debug Toggle -->
-    <div class="flex items-center gap-3 shrink-0">
-      <div class="hidden xl:flex items-center gap-4 text-[11px] font-mono text-zinc-500">
-        <span>Say <strong class="text-zinc-300 font-normal">"skip"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">Tab</kbd> to skip</span>
-        <span>Say <strong class="text-zinc-300 font-normal">"reveal"</strong> / <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-400">?</kbd> for answer</span>
-      </div>
-      <button
-        id="audioDebugToggleBtn"
-        type="button"
-        aria-controls="audioDebugPanel"
-        aria-expanded="false"
-        class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors"
-      >
-        Audio Debug
-      </button>
-    </div>
+  <!-- 1. TOP BAR: Keyboard Controls -->
+  <header class="w-full border-b border-zinc-900 px-4 sm:px-6 py-3 flex items-center justify-center bg-zinc-950/90 z-10">
+    <p class="text-[11px] font-mono text-zinc-500 text-center">
+      <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-300">Space</kbd> to reveal
+      <span class="mx-2 text-zinc-700">·</span>
+      <kbd class="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded text-zinc-300">Space</kbd> again for the next question
+    </p>
   </header>
 
   <!-- 2. CENTER STAGE: Pure Math Expression & Prompt -->
@@ -126,35 +87,6 @@
         </span>
       </div>
 
-      <!-- Subtle Keyboard Fallback Input + Manual Controls -->
-      <div class="mt-4 flex items-center gap-2 w-full max-w-xs">
-        <input
-          id="manualInput"
-          type="text"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          spellcheck="false"
-          placeholder="Speak or type answer..."
-          class="w-full bg-zinc-900/50 border border-zinc-800/90 focus:border-zinc-600 rounded-lg px-3 py-1.5 text-center text-xs font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none transition-colors"
-        />
-        <button
-          id="skipBtn"
-          type="button"
-          title="Skip question (or say 'skip' / press Tab)"
-          class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
-        >
-          Skip
-        </button>
-        <button
-          id="revealBtn"
-          type="button"
-          title="Reveal answer (or say 'reveal' / press ?)"
-          class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors shrink-0"
-        >
-          Reveal
-        </button>
-      </div>
     </div>
   </main>
 
@@ -196,109 +128,6 @@
       </div>
     </div>
   </footer>
-
-  <!-- 4. AUDIO DEBUG PANEL: Recognition State, Parser Output & Event Log -->
-  <aside
-    id="audioDebugPanel"
-    aria-label="Audio debugging panel"
-    class="hidden fixed right-3 bottom-3 z-50 w-[calc(100vw-1.5rem)] sm:w-[26rem] max-h-[80vh] overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950/95 shadow-2xl shadow-black/60 select-text"
-  >
-    <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800 bg-zinc-900/70">
-      <div>
-        <h2 class="text-xs font-mono font-medium uppercase tracking-widest text-zinc-200">Audio Debug</h2>
-        <p class="mt-0.5 text-[10px] font-mono text-zinc-500">Web Speech API & parser diagnostics</p>
-      </div>
-      <div class="flex items-center gap-1.5">
-        <button
-          id="audioDebugClearBtn"
-          type="button"
-          class="px-2 py-1 rounded border border-zinc-700 text-[10px] font-mono text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-colors"
-        >
-          Clear Log
-        </button>
-        <button
-          id="audioDebugCloseBtn"
-          type="button"
-          aria-label="Close audio debugging panel"
-          class="w-7 h-7 rounded border border-zinc-700 text-sm font-mono text-zinc-400 hover:text-zinc-100 hover:border-zinc-500 transition-colors"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-
-    <div class="overflow-y-auto max-h-[calc(80vh-4rem)] p-4 space-y-4 text-[11px] font-mono">
-      <div class="grid grid-cols-2 gap-2">
-        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
-          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Speech API</span>
-          <p id="audioDebugSupport" class="mt-1 text-zinc-300">Checking…</p>
-        </div>
-        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
-          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Microphone</span>
-          <p id="audioDebugStatus" class="mt-1 text-zinc-300">Idle</p>
-        </div>
-        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
-          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Results / Restarts</span>
-          <p class="mt-1 text-zinc-300"><span id="audioDebugResultCount">0</span> / <span id="audioDebugRestartCount">0</span></p>
-        </div>
-        <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-2.5">
-          <span class="block text-[10px] uppercase tracking-wider text-zinc-500">Last Error</span>
-          <p id="audioDebugError" class="mt-1 text-zinc-300 break-words">None</p>
-        </div>
-      </div>
-
-      <section class="rounded-lg border border-zinc-800 overflow-hidden">
-        <h3 class="px-3 py-2 bg-zinc-900/60 border-b border-zinc-800 text-[10px] uppercase tracking-wider text-zinc-500">Latest Recognition Result</h3>
-        <dl class="p-3 space-y-2.5">
-          <div>
-            <dt class="text-zinc-500">Raw transcript</dt>
-            <dd id="audioDebugRaw" class="mt-0.5 text-zinc-200 whitespace-pre-wrap break-words">—</dd>
-          </div>
-          <div>
-            <dt class="text-zinc-500">Unconsumed text</dt>
-            <dd id="audioDebugUnconsumed" class="mt-0.5 text-zinc-200 whitespace-pre-wrap break-words">—</dd>
-          </div>
-          <div>
-            <dt class="text-zinc-500">Text sent to parser</dt>
-            <dd id="audioDebugEvaluated" class="mt-0.5 text-cyan-300 whitespace-pre-wrap break-words">—</dd>
-          </div>
-          <div>
-            <dt class="text-zinc-500">Parser outcome</dt>
-            <dd id="audioDebugOutcome" class="mt-1 text-emerald-300 break-words">—</dd>
-          </div>
-          <div>
-            <dt class="text-zinc-500">Consumed result / characters</dt>
-            <dd id="audioDebugConsumed" class="mt-0.5 text-zinc-300">—</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section class="rounded-lg border border-zinc-800 overflow-hidden">
-        <h3 class="px-3 py-2 bg-zinc-900/60 border-b border-zinc-800 text-[10px] uppercase tracking-wider text-zinc-500">Recognition Alternatives</h3>
-        <ol id="audioDebugAlternatives" class="p-3 space-y-1.5 text-zinc-300">
-          <li class="text-zinc-600">No results yet.</li>
-        </ol>
-      </section>
-
-      <section class="rounded-lg border border-zinc-800 overflow-hidden">
-        <div class="flex items-center justify-between px-3 py-2 bg-zinc-900/60 border-b border-zinc-800">
-          <h3 class="text-[10px] uppercase tracking-wider text-zinc-500">Event Log</h3>
-          <span class="text-[10px] text-zinc-600">Last: <span id="audioDebugLastEvent">init</span></span>
-        </div>
-        <div
-          id="audioDebugLog"
-          role="log"
-          aria-label="Audio event log"
-          class="h-44 overflow-y-auto p-2 space-y-1 bg-zinc-950 text-[10px] leading-relaxed"
-        >
-          <p data-audio-debug-empty class="text-zinc-600">No audio events yet.</p>
-        </div>
-      </section>
-    </div>
-  </aside>
-
-  <!-- Audio capture, spoken answer parsing, and voice commands -->
-  <script src="audio.js"></script>
 
   <script>
     /********************************************************************
@@ -418,29 +247,16 @@
     const state = {
       activeCategories: new Set(CATEGORIES.filter(c => c.defaultOn).map(c => c.id)),
       currentQuestion: null,
-      isTransitioning: false,
-      lastMatchTimestamp: 0,
-      consumedResultIndex: -1,
-      consumedTranscriptLength: 0,
-      micListening: false,
-      recognition: null
+      isRevealed: false
     };
 
     // DOM Elements
-    const micToggleBtn = document.getElementById('micToggleBtn');
-    const micDot = document.getElementById('micDot');
-    const micBtnLabel = document.getElementById('micBtnLabel');
-    const liveTranscript = document.getElementById('liveTranscript');
-    const parsedPreview = document.getElementById('parsedPreview');
     const stageCard = document.getElementById('stageCard');
     const categoryBadge = document.getElementById('categoryBadge');
     const answerTypeBadge = document.getElementById('answerTypeBadge');
     const mathContainer = document.getElementById('mathContainer');
     const promptText = document.getElementById('promptText');
     const feedbackBadge = document.getElementById('feedbackBadge');
-    const manualInput = document.getElementById('manualInput');
-    const skipBtn = document.getElementById('skipBtn');
-    const revealBtn = document.getElementById('revealBtn');
     const categoryGrid = document.getElementById('categoryGrid');
     const allOnBtn = document.getElementById('allOnBtn');
     const allOffBtn = document.getElementById('allOffBtn');
@@ -476,15 +292,19 @@
     }
 
     function nextQuestion() {
+      state.isRevealed = false;
+      stageCard.classList.remove('border-amber-500/70', 'bg-amber-950/15');
+      stageCard.classList.add('border-zinc-900', 'bg-zinc-950');
+      feedbackBadge.textContent = ' ';
+      feedbackBadge.className = 'px-3 py-0.5 rounded-full text-xs font-mono tracking-wider opacity-0 transition-opacity duration-100';
+
       const enabled = CATEGORIES.filter(c => state.activeCategories.has(c.id));
       if (enabled.length === 0) {
         state.currentQuestion = null;
-        state.isTransitioning = false;
         categoryBadge.textContent = 'STANDBY';
         answerTypeBadge.textContent = 'NONE';
         mathContainer.innerHTML = '<span class="text-xl sm:text-2xl font-mono text-zinc-500">No categories selected</span>';
         promptText.textContent = 'Select at least one category below to begin drilling.';
-        manualInput.value = '';
         return;
       }
 
@@ -493,7 +313,6 @@
       q.categoryId = chosenCat.id;
       q.categoryLabel = chosenCat.label;
       state.currentQuestion = q;
-      state.isTransitioning = false;
 
       // Update Metadata Badges
       categoryBadge.textContent = q.categoryLabel;
@@ -510,33 +329,11 @@
       }
 
       promptText.textContent = q.prompt;
-      manualInput.value = '';
     }
 
-    function triggerCorrectTransition(matchedStr) {
-      if (state.isTransitioning) return;
-      state.isTransitioning = true;
-      state.lastMatchTimestamp = performance.now();
-
-      // Flash stage border and show matched value
-      stageCard.classList.remove('border-zinc-900', 'bg-zinc-950');
-      stageCard.classList.add('border-emerald-500/80', 'bg-emerald-950/20');
-
-      feedbackBadge.textContent = `✓ ${matchedStr}`;
-      feedbackBadge.className = 'px-3 py-0.5 rounded-full text-xs font-mono tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 opacity-100 transition-opacity duration-75';
-
-      setTimeout(() => {
-        stageCard.classList.remove('border-emerald-500/80', 'bg-emerald-950/20');
-        stageCard.classList.add('border-zinc-900', 'bg-zinc-950');
-        feedbackBadge.classList.replace('opacity-100', 'opacity-0');
-        nextQuestion();
-      }, 150);
-    }
-
-    function triggerRevealTransition() {
-      if (state.isTransitioning || !state.currentQuestion) return;
-      state.isTransitioning = true;
-      state.lastMatchTimestamp = performance.now();
+    function revealAnswer() {
+      if (state.isRevealed || !state.currentQuestion) return;
+      state.isRevealed = true;
 
       const ansDisplay = typeof state.currentQuestion.answer === 'boolean'
         ? (state.currentQuestion.answer ? 'True' : 'False')
@@ -547,28 +344,11 @@
 
       feedbackBadge.textContent = `Answer: ${ansDisplay}`;
       feedbackBadge.className = 'px-3 py-0.5 rounded-full text-xs font-mono tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 opacity-100 transition-opacity duration-75';
-
-      setTimeout(() => {
-        stageCard.classList.remove('border-amber-500/70', 'bg-amber-950/15');
-        stageCard.classList.add('border-zinc-900', 'bg-zinc-950');
-        feedbackBadge.classList.replace('opacity-100', 'opacity-0');
-        nextQuestion();
-      }, 650);
     }
 
     /********************************************************************
      * 4. KEYBOARD & BUTTON EVENT WIRING
      ********************************************************************/
-    micToggleBtn.addEventListener('click', toggleMicrophone);
-
-    skipBtn.addEventListener('click', () => {
-      nextQuestion();
-    });
-
-    revealBtn.addEventListener('click', () => {
-      triggerRevealTransition();
-    });
-
     allOnBtn.addEventListener('click', () => {
       const wasEmpty = state.activeCategories.size === 0;
       CATEGORIES.forEach(c => state.activeCategories.add(c.id));
@@ -591,45 +371,15 @@
       nextQuestion();
     });
 
-    // Zero-wait evaluation on manual typing fallback
-    manualInput.addEventListener('input', (e) => {
-      const val = e.target.value;
-      if (val.endsWith('?')) {
-        manualInput.value = '';
-        triggerRevealTransition();
-        return;
-      }
-      const outcome = evaluateUtterance(val, state.currentQuestion);
-      if (outcome.type === 'COMMAND_SKIP') {
-        manualInput.value = '';
-        nextQuestion();
-      } else if (outcome.type === 'COMMAND_REVEAL') {
-        manualInput.value = '';
-        triggerRevealTransition();
-      } else if (outcome.type === 'MATCH') {
-        triggerCorrectTransition(outcome.matchedDisplay);
-      }
-    });
-
-    // Global keyboard shortcuts so user doesn't even have to focus the input box
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Tab') {
-        e.preventDefault();
+      if (e.key !== ' ' && e.code !== 'Space') return;
+      e.preventDefault();
+      if (e.repeat) return;
+
+      if (state.isRevealed) {
         nextQuestion();
-        return;
-      }
-      if (e.key === '?') {
-        e.preventDefault();
-        triggerRevealTransition();
-        return;
-      }
-      // Automatically route character typing to manualInput if not already focused
-      if (
-        document.activeElement !== manualInput &&
-        !e.metaKey && !e.ctrlKey && !e.altKey &&
-        e.key.length === 1
-      ) {
-        manualInput.focus();
+      } else {
+        revealAnswer();
       }
     });
 
@@ -637,8 +387,6 @@
     window.addEventListener('DOMContentLoaded', () => {
       renderCategoryPills();
       nextQuestion();
-      initAudioDebugPanel();
-      initSpeechRecognition();
     });
   </script>
 </body>
