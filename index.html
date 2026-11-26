@@ -24,8 +24,9 @@
     .font-mono {
       font-family: 'JetBrains Mono', monospace;
     }
-    /* Scale KaTeX cleanly for center-stage legibility */
-    .math-stage .katex {
+    /* Scale questions and revealed answers for center-stage legibility */
+    .math-stage .katex,
+    .math-stage.math-answer {
       font-size: clamp(2.1rem, 5.2vw, 4.25rem);
       line-height: 1.2;
     }
@@ -71,7 +72,7 @@
       </div>
 
       <!-- KaTeX Rendered Expression -->
-      <div id="mathContainer" class="math-stage min-h-[5.5rem] flex items-center justify-center px-2 text-zinc-50 overflow-x-auto max-w-full">
+      <div id="mathContainer" class="math-stage min-h-[5.5rem] flex items-center justify-center px-2 font-mono font-medium text-zinc-50 overflow-x-auto max-w-full">
         <!-- Rendered by KaTeX -->
       </div>
 
@@ -79,13 +80,6 @@
       <p id="promptText" class="mt-5 text-base sm:text-lg font-medium tracking-tight text-zinc-400">
         Evaluate
       </p>
-
-      <!-- Instant Match / Reveal Feedback Pill (Fixed Height to avoid layout shift) -->
-      <div class="h-8 mt-4 flex items-center justify-center">
-        <span id="feedbackBadge" class="px-3 py-0.5 rounded-full text-xs font-mono tracking-wider opacity-0 transition-opacity duration-100">
-          &nbsp;
-        </span>
-      </div>
 
     </div>
   </main>
@@ -155,13 +149,23 @@
         label: 'Times Tables',
         defaultOn: true,
         generate() {
-          const a = randInt(1, 12);
+          const factors = [3, 4, 5, 6, 7, 8, 9, 11, 12];
+          const a = choice(factors);
           // At most one factor may be below 5, avoiding the easiest low-by-low products.
-          const b = a < 5 ? randInt(5, 12) : randInt(1, 12);
+          const b = a < 5 ? choice(factors.filter(n => n >= 5)) : choice(factors);
+          const product = a * b;
+
+          if (choice(['multiply', 'divide']) === 'divide') {
+            return {
+              latex: `${product} \\div ${a}`,
+              answer: b,
+              answerType: 'INTEGER'
+            };
+          }
+
           return {
             latex: `${a} \\times ${b}`,
-            prompt: 'Product?',
-            answer: a * b,
+            answer: product,
             answerType: 'INTEGER'
           };
         }
@@ -256,7 +260,6 @@
     const answerTypeBadge = document.getElementById('answerTypeBadge');
     const mathContainer = document.getElementById('mathContainer');
     const promptText = document.getElementById('promptText');
-    const feedbackBadge = document.getElementById('feedbackBadge');
     const categoryGrid = document.getElementById('categoryGrid');
     const allOnBtn = document.getElementById('allOnBtn');
     const allOffBtn = document.getElementById('allOffBtn');
@@ -295,8 +298,8 @@
       state.isRevealed = false;
       stageCard.classList.remove('border-amber-500/70', 'bg-amber-950/15');
       stageCard.classList.add('border-zinc-900', 'bg-zinc-950');
-      feedbackBadge.textContent = ' ';
-      feedbackBadge.className = 'px-3 py-0.5 rounded-full text-xs font-mono tracking-wider opacity-0 transition-opacity duration-100';
+      mathContainer.classList.remove('text-amber-300', 'math-answer');
+      mathContainer.classList.add('text-zinc-50');
 
       const enabled = CATEGORIES.filter(c => state.activeCategories.has(c.id));
       if (enabled.length === 0) {
@@ -305,6 +308,7 @@
         answerTypeBadge.textContent = 'NONE';
         mathContainer.innerHTML = '<span class="text-xl sm:text-2xl font-mono text-zinc-500">No categories selected</span>';
         promptText.textContent = 'Select at least one category below to begin drilling.';
+        promptText.classList.remove('hidden', 'invisible');
         return;
       }
 
@@ -328,7 +332,9 @@
         mathContainer.textContent = q.latex;
       }
 
-      promptText.textContent = q.prompt;
+      promptText.textContent = q.prompt || '';
+      promptText.classList.remove('invisible');
+      promptText.classList.toggle('hidden', !q.prompt);
     }
 
     function revealAnswer() {
@@ -342,8 +348,11 @@
       stageCard.classList.remove('border-zinc-900', 'bg-zinc-950');
       stageCard.classList.add('border-amber-500/70', 'bg-amber-950/15');
 
-      feedbackBadge.textContent = `Answer: ${ansDisplay}`;
-      feedbackBadge.className = 'px-3 py-0.5 rounded-full text-xs font-mono tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 opacity-100 transition-opacity duration-75';
+      mathContainer.textContent = ansDisplay;
+      mathContainer.classList.remove('text-zinc-50');
+      mathContainer.classList.add('text-amber-300', 'math-answer');
+      // Hide auxiliary prompts without moving the question/answer position.
+      promptText.classList.add('invisible');
     }
 
     /********************************************************************

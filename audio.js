@@ -2,19 +2,28 @@
  * 1. PHONETIC NORMALIZER & SPOKEN MATH PARSER
  ********************************************************************/
 const WORD_TO_NUM = {
-  'zero': 0, 'oh': 0, 'nought': 0, 'nil': 0,
-  'one': 1, 'won': 1,
-  'two': 2, 'to': 2, 'too': 2,
-  'three': 3, 'tree': 3,
-  'four': 4, 'for': 4, 'fore': 4,
-  'five': 5,
-  'six': 6, 'sicks': 6,
-  'seven': 7,
-  'eight': 8, 'ate': 8,
-  'nine': 9, 'nein': 9,
-  'ten': 10,
-  'eleven': 11,
-  'twelve': 12,
+  // macOS WebKit/Blink homophones for isolated short utterances.
+  'zero': 0, 'oh': 0, 'o': 0, 'hero': 0, 'nero': 0, 'zircon': 0, 'nil': 0, 'nought': 0, 'naught': 0,
+  'one': 1, 'won': 1, 'wan': 1, 'un': 1, 'once': 1, 'run': 1,
+  'two': 2, 'to': 2, 'too': 2, 'tu': 2, 'chew': 2, 'do': 2, 'who': 2, 'shoe': 2,
+  'three': 3, 'free': 3, 'tree': 3, 'see': 3, 'tea': 3, 'flea': 3, 'spree': 3, 'thee': 3, 'sri': 3,
+  'four': 4, 'for': 4, 'fore': 4, 'floor': 4, 'fort': 4, 'pour': 4, 'or': 4, 'far': 4,
+  'full': 4, 'fall': 4, 'ford': 4, 'form': 4, 'more': 4, 'war': 4, 'bore': 4,
+  'door': 4, 'roar': 4, 'soar': 4,
+  'five': 5, 'fine': 5, 'fife': 5, 'hive': 5, 'fight': 5, 'fire': 5, 'find': 5,
+  'live': 5, 'dive': 5, 'wives': 5, 'file': 5, 'side': 5, 'size': 5, 'sigh': 5,
+  'six': 6, 'sick': 6, 'sicks': 6, 'sex': 6, 'seeks': 6, 'sticks': 6, 'fix': 6,
+  'ticks': 6, 'kicks': 6, 'picks': 6, 'mix': 6, 'sax': 6,
+  'seven': 7, 'heaven': 7, 'sevens': 7, 'saving': 7, 'sever': 7, 'devon': 7, 'kevin': 7,
+  'eight': 8, 'ate': 8, 'ait': 8, 'hate': 8, 'wait': 8, 'late': 8, 'weight': 8,
+  'gate': 8, 'date': 8, 'fate': 8, 'rate': 8, 'great': 8, 'bait': 8, 'state': 8,
+  'it': 8, 'eat': 8, 'aid': 8,
+  'nine': 9, 'mine': 9, 'line': 9, 'nein': 9, 'pine': 9, 'wine': 9, 'vine': 9,
+  'dine': 9, 'sign': 9, 'shine': 9, 'noon': 9, 'known': 9, 'none': 9, 'knight': 9, 'night': 9,
+  'ten': 10, 'tin': 10, 'tan': 10, 'then': 10, 'pen': 10, 'men': 10, 'hen': 10,
+  'den': 10, 'ken': 10, 'zen': 10, 'tend': 10, 'tent': 10,
+  'eleven': 11, 'leaven': 11, 'loving': 11,
+  'twelve': 12, 'twelfth': 12, 'delve': 12, 'dwell': 12,
   'thirteen': 13,
   'fourteen': 14,
   'fifteen': 15,
@@ -52,20 +61,53 @@ const CANONICAL_WORDS = {
 };
 
 const BOOLEAN_WORDS = {
-  'true': true, 'yes': true, 'correct': true, 'yeah': true, 'yep': true,
-  'false': false, 'no': false, 'incorrect': false, 'nope': false, 'faults': false, 'falls': false
+  'true': true, 'through': true, 'threw': true, 'drew': true, 'crew': true, 'brew': true,
+  'grew': true, 'you': true, 'truth': true, 'troop': true, 'truly': true, 'to': true,
+  'two': true, 'chew': true, 'correct': true, 'yes': true, 'yeah': true, 'yep': true, 'right': true,
+  'false': false, 'falls': false, 'faults': false, 'force': false, 'fours': false,
+  'vaults': false, 'folks': false, 'foul': false, 'fouls': false, 'fault': false,
+  'forth': false, 'fourth': false, 'fast': false, 'fox': false, 'wrong': false,
+  'no': false, 'nope': false, 'incorrect': false
 };
+
+const CARRIER_PREFIXES = [
+  'answer is', 'the answer is', 'answer', 'number', 'option', 'choice',
+  'letter', 'it is', "it's", 'its', 'equals', 'is', 'say', 'code', 'value'
+].sort((a, b) => b.length - a.length);
+
+/**
+ * Reproduces the debugger's default cleanup: punctuation removal, carrier-prefix
+ * stripping ("answer four"), and repeated-word collapse ("four four").
+ */
+function normalizeUtteranceText(rawText) {
+  let cleaned = String(rawText || '')
+    .toLowerCase()
+    .replace(/,/g, '')
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  for (const prefix of CARRIER_PREFIXES) {
+    if (cleaned.startsWith(`${prefix} `)) {
+      cleaned = cleaned.slice(prefix.length).trim();
+      break;
+    }
+  }
+
+  const tokens = cleaned.split(' ').filter(Boolean);
+  if (tokens.length === 2 && tokens[0] === tokens[1]) {
+    cleaned = tokens[0];
+  }
+
+  return cleaned;
+}
 
 /**
  * Parses spoken number phrases or digit strings into an array of candidate integers.
  * Supports negative prefixes ("minus", "negative") and compound spoken numbers up to 1000.
  */
 function extractIntegersFromUtterance(rawText) {
-  const cleaned = rawText
-    .toLowerCase()
-    .replace(/,/g, '')
-    .replace(/[^\w\s-]/g, ' ')
-    .trim();
+  const cleaned = normalizeUtteranceText(rawText);
 
   if (!cleaned) return [];
 
@@ -112,6 +154,8 @@ function extractIntegersFromUtterance(rawText) {
       const val = WORD_TO_NUM[t];
       current += val;
       hasNumberToken = true;
+      // Match individual words as well as compound number phrases.
+      candidates.add(sign * val);
       candidates.add(sign * (acc + current));
     } else if (t === 'hundred') {
       if (current === 0) current = 1;
@@ -142,17 +186,17 @@ function extractIntegersFromUtterance(rawText) {
  * or triggers a voice command ("skip", "reveal").
  */
 function evaluateUtterance(text, activeQuestion) {
-  const lower = text.toLowerCase().trim();
+  const lower = normalizeUtteranceText(text);
   if (!lower) return { type: 'NONE' };
 
-  const words = lower.replace(/[^\w\s-]/g, ' ').split(/\s+/).filter(Boolean);
+  const words = lower.split(/\s+/).filter(Boolean);
 
   // Check voice commands first on recent words
   const recentWords = words.slice(-4);
   if (recentWords.some(w => w === 'skip' || w === 'pass' || w === 'next')) {
     return { type: 'COMMAND_SKIP' };
   }
-  if (recentWords.some(w => w === 'reveal' || w === 'answer' || w === 'help')) {
+  if (recentWords.some(w => w === 'reveal' || w === 'help')) {
     return { type: 'COMMAND_REVEAL' };
   }
 
@@ -402,9 +446,9 @@ function initSpeechRecognition() {
   // Keep one session alive; consumed transcript offsets prevent old audio matching twice.
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang = 'en-US';
-  recognition.maxAlternatives = 3;
-  logAudioDebug('configure', 'continuous=true interimResults=true lang=en-US maxAlternatives=3');
+  recognition.lang = 'en-GB';
+  recognition.maxAlternatives = 8;
+  logAudioDebug('configure', 'continuous=true interimResults=true lang=en-GB maxAlternatives=8');
 
   recognition.onstart = () => {
     state.micListening = true;
@@ -496,17 +540,17 @@ function initSpeechRecognition() {
           ? altRaw.slice(state.consumedTranscriptLength)
           : altRaw;
 
-        // Only evaluate the trailing window of words so old mistakes don't block new words
-        const trailingWords = altUnconsumed.trim().split(/\s+/).slice(-4).join(' ');
-        const outcome = evaluateUtterance(trailingWords, state.currentQuestion);
+        // Evaluate every returned word instead of discarding all but a trailing window.
+        const utteranceText = altUnconsumed.trim();
+        const outcome = evaluateUtterance(utteranceText, state.currentQuestion);
         const isSuccessfulOutcome = outcome.type === 'MATCH' || outcome.type === 'COMMAND_SKIP' || outcome.type === 'COMMAND_REVEAL';
         const isLatestPrimaryAlternative = entry.index === latestIdx && altIdx === 0;
 
         if (isLatestPrimaryAlternative || isSuccessfulOutcome) {
-          setAudioDebugText('evaluated', `${trailingWords || '(empty)'}  [result ${entry.index}, alternative ${altIdx + 1}]`);
+          setAudioDebugText('evaluated', `${utteranceText || '(empty)'}  [result ${entry.index}, alternative ${altIdx + 1}]`);
           setAudioDebugText('outcome', formatAudioDebugOutcome(outcome));
         }
-        logAudioDebug('parse', `result=${entry.index} alt=${altIdx + 1} · "${trailingWords || '(empty)'}" → ${formatAudioDebugOutcome(outcome)}`);
+        logAudioDebug('parse', `result=${entry.index} alt=${altIdx + 1} · "${utteranceText || '(empty)'}" → ${formatAudioDebugOutcome(outcome)}`);
 
         if (isLatestPrimaryAlternative) {
           if (outcome.preview) {
@@ -568,21 +612,25 @@ function initSpeechRecognition() {
     logAudioDebug('end', `Recognition ended · micListening=${state.micListening}`);
     // Auto-restart continuous session if user did not manually pause
     if (state.micListening) {
-      try {
-        state.consumedResultIndex = -1;
-        state.consumedTranscriptLength = 0;
-        audioDebugState.restartCount += 1;
-        setAudioDebugText('restartCount', audioDebugState.restartCount);
-        setAudioDebugStatus('Restarting…', 'warning');
-        updateAudioDebugConsumed();
-        logAudioDebug('restart', `Attempt ${audioDebugState.restartCount}`, 'warning');
-        recognition.start();
-      } catch (e) {
-        // Ignore race condition on rapid restart
-        setAudioDebugText('error', `Restart failed: ${e.message}`);
-        setAudioDebugStatus('Restart Failed', 'error');
-        logAudioDebug('restart-error', e.message, 'error');
-      }
+      state.consumedResultIndex = -1;
+      state.consumedTranscriptLength = 0;
+      audioDebugState.restartCount += 1;
+      setAudioDebugText('restartCount', audioDebugState.restartCount);
+      setAudioDebugStatus('Restarting…', 'warning');
+      updateAudioDebugConsumed();
+      logAudioDebug('restart', `Attempt ${audioDebugState.restartCount}`, 'warning');
+
+      // Match the debugger's watchdog delay and avoid rapid onend/start races.
+      setTimeout(() => {
+        if (!state.micListening) return;
+        try {
+          recognition.start();
+        } catch (e) {
+          setAudioDebugText('error', `Restart failed: ${e.message}`);
+          setAudioDebugStatus('Restart Failed', 'error');
+          logAudioDebug('restart-error', e.message, 'error');
+        }
+      }, 60);
     } else {
       micDot.className = 'w-2 h-2 rounded-full bg-zinc-500';
       micBtnLabel.textContent = 'Start Mic';

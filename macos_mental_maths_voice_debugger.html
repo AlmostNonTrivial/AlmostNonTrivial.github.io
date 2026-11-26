@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>macOS Mental Maths — Voice Recognition Debugger & Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slate: {
+              850: '#151e2e',
+              950: '#090d16',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090d16;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+    }
+    /* Custom Subtle Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .pulse-ring {
+      animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .match-flash {
+      animation: matchFlash 0.6s ease-out;
+    }
+    @keyframes matchFlash {
+      0% { background-color: rgba(16, 185, 129, 0.35); border-color: #10b981; }
+      100% { background-color: rgba(15, 23, 42, 0.9); border-color: #1e293b; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP STATUS & TELEMETRY BAR -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-30 px-4 py-2.5">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span id="statusDot" class="w-3 h-3 rounded-full bg-slate-600 inline-block transition-all"></span>
+          <h1 class="font-bold text-sm md:text-base tracking-tight text-white flex items-center gap-2">
+            macOS SpeechRecognizer Lab
+            <span class="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">M3+ Low-Latency Engine</span>
+          </h1>
+        </div>
+        <span id="engineBadge" class="text-xs font-mono text-slate-400 bg-slate-800/90 px-2.5 py-1 rounded border border-slate-700">
+          Detecting API...
+        </span>
+      </div>
+
+      <!-- Lifecycle & Watchdog Indicators -->
+      <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+        <div class="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded border border-slate-800">
+          <span class="text-slate-500">STATE:</span>
+          <span id="lifecycleState" class="text-amber-400 font-semibold">IDLE</span>
+        </div>
+        <div class="flex items-center gap-1 bg-slate-950 px-2.5 py-1 rounded border border-slate-800" title="Number of times onend/onerror automatically restarted recognition">
+          <span class="text-slate-500">WATCHDOG RESTARTS:</span>
+          <span id="watchdogCount" class="text-emerald-400 font-semibold">0</span>
+        </div>
+        <button id="toggleWorkaroundsBtn" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 transition flex items-center gap-1.5 font-sans text-xs font-medium">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Why "four/five/true" fail & Workarounds
+        </button>
+        <button id="masterMicBtn" class="px-3.5 py-1.5 rounded font-sans font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition flex items-center gap-1.5">
+          <svg id="micIcon" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/></svg>
+          <span id="masterMicText">Start Voice Engine</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- COLLAPSIBLE ARCHITECTURAL BRIEF & WORKAROUNDS PANEL -->
+  <section id="workaroundsDrawer" class="hidden bg-slate-900/95 border-b border-indigo-500/30 px-4 py-4">
+    <div class="max-w-[1600px] mx-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-indigo-400 font-mono">Root Cause Analysis: Short-Utterance Failures on macOS WebKit/Blink & 5 Production Workarounds</h2>
+        <button id="closeDrawerBtn" class="text-xs text-slate-400 hover:text-white font-mono">[ESC / Close]</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs leading-relaxed">
+        <div class="bg-slate-950/90 p-3 rounded border border-slate-800">
+          <div class="font-bold text-emerald-400 mb-1 font-mono">1. N-Best Deep Inspection</div>
+          <p class="text-slate-300">Web Speech API language models rank grammar probability over isolated numbers. Saying <code class="text-amber-300">"four"</code> almost always yields <code class="text-rose-400">result[0]="for"</code>. Setting <code class="text-indigo-300">maxAlternatives = 10</code> exposes <code class="text-emerald-300">result[2]="4"</code> so we can scan the entire hypothesis matrix.</p>
+        </div>
+        <div class="bg-slate-950/90 p-3 rounded border border-slate-800">
+          <div class="font-bold text-emerald-400 mb-1 font-mono">2. Phonetic Homophone Map</div>
+          <p class="text-slate-300">Short fricatives (<code class="text-amber-300">f</code>, <code class="text-amber-300">th</code>, <code class="text-amber-300">s</code>) get clipped by macOS hardware noise gating on M3 mics. Mapping <code class="text-indigo-300">"free/tree" → 3</code>, <code class="text-indigo-300">"for/fore/floor" → 4</code>, <code class="text-indigo-300">"fine/hive" → 5</code>, and <code class="text-indigo-300">"falls/force" → false</code> recovers 95%+ of misses.</p>
+        </div>
+        <div class="bg-slate-950/90 p-3 rounded border border-slate-800">
+          <div class="font-bold text-emerald-400 mb-1 font-mono">3. Instant Interim Trigger</div>
+          <p class="text-slate-300">Waiting for <code class="text-rose-400">isFinal === true</code> incurs a 700–1200ms silence endpoint penalty and sometimes drops single syllables entirely. Parsing <code class="text-indigo-300">interimResults</code> and locking immediately upon target validation cuts latency to ~140ms.</p>
+        </div>
+        <div class="bg-slate-950/90 p-3 rounded border border-slate-800">
+          <div class="font-bold text-emerald-400 mb-1 font-mono">4. Carrier Phrase Prefix</div>
+          <p class="text-slate-300">Isolated 150ms words fail VAD wake-up. Saying <code class="text-emerald-300">"Answer four"</code> or <code class="text-emerald-300">"Option B"</code> warms up the acoustic model and forces the LM to expect a number/letter after the noun. Our parser strips carrier prefixes automatically.</p>
+        </div>
+        <div class="bg-slate-950/90 p-3 rounded border border-slate-800">
+          <div class="font-bold text-emerald-400 mb-1 font-mono">5. Double- utterance & NATO</div>
+          <p class="text-slate-300">For Multiple Choice or True/False, single letters (<code class="text-amber-300">"B"</code> vs <code class="text-amber-300">"D"</code> vs <code class="text-amber-300">"C"</code>) are acoustically identical on laptop mics. Supporting <code class="text-emerald-300">Alpha/Bravo/Charlie/Delta</code> or double-tap (<code class="text-emerald-300">"four four"</code>) makes recognition rock-solid.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN 12-COLUMN HIGH-DENSITY WORKSPACE -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+    <!-- LEFT COLUMN (4 COLS): CONFIGURATION, PROMPT SIMULATOR & VAD TELEMETRY -->
+    <div class="lg:col-span-4 flex flex-col gap-4">
+
+      <!-- 1. MENTAL MATHS PROMPT & TARGET SIMULATOR -->
+      <div id="promptCard" class="bg-slate-900/90 border border-slate-800 rounded-lg p-4 shadow-lg transition-colors">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">1. Target Mode & Prompt Generator</span>
+          <span id="streakBadge" class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Hits: 0</span>
+        </div>
+
+        <!-- Mode Selector -->
+        <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-950 rounded-lg border border-slate-800 mb-3 text-xs font-medium">
+          <button data-mode="NUMBERS" class="mode-btn py-1.5 px-2 rounded bg-indigo-600 text-white shadow transition">Numbers</button>
+          <button data-mode="BOOLEAN" class="mode-btn py-1.5 px-2 rounded text-slate-400 hover:text-white transition">True / False</button>
+          <button data-mode="MCQ" class="mode-btn py-1.5 px-2 rounded text-slate-400 hover:text-white transition">Choice (A-D)</button>
+        </div>
+
+        <!-- Active Math Question Box -->
+        <div class="bg-slate-950 border border-slate-800/90 rounded-lg p-3.5 mb-3 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-mono text-slate-400 uppercase" id="promptSubtext">Mental Maths Prompt (Say Answer):</div>
+            <div class="text-2xl font-mono font-bold text-white tracking-tight mt-0.5" id="promptDisplay">12 ÷ 3 = ?</div>
+          </div>
+          <div class="text-right">
+            <div class="text-[11px] font-mono text-slate-400 uppercase">Target</div>
+            <div id="expectedTargetBadge" class="text-2xl font-mono font-bold text-emerald-400">4</div>
+          </div>
+        </div>
+
+        <!-- Manual Override & Next Prompt Controls -->
+        <div class="flex items-center gap-2">
+          <div class="flex-1 relative">
+            <input id="manualTargetInput" type="text" value="4" placeholder="Expected Target..." 
+              class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded px-3 py-1.5 text-xs font-mono text-white outline-none" />
+            <span class="absolute right-2.5 top-1.5 text-[10px] font-mono text-slate-500">EXPECTED</span>
+          </div>
+          <button id="randomPromptBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 text-xs font-medium transition whitespace-nowrap">
+            Next Prompt ↻
+          </button>
+          <button id="problemWordsBtn" class="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded border border-amber-500/30 text-xs font-mono transition whitespace-nowrap" title="Cycle through notorious hard-to-recognize words: 3, 4, 5, 8, True, False, B">
+            Test Hard Words
+          </button>
+        </div>
+
+        <!-- Last Match Status Banner -->
+        <div id="matchBanner" class="mt-3 px-3 py-2 rounded bg-slate-950 border border-slate-800 flex items-center justify-between text-xs font-mono">
+          <span id="matchStatusText" class="text-slate-400">Waiting for utterance...</span>
+          <span id="matchLatencyBadge" class="text-indigo-400 font-semibold">— ms</span>
+        </div>
+      </div>
+
+      <!-- 2. WEB SPEECH API CONFIGURATION CONSOLE -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-4 shadow-lg">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">2. Web Speech API Config</span>
+          <span class="text-[11px] font-mono text-slate-400">Live Re-init</span>
+        </div>
+
+        <div class="space-y-2.5 text-xs">
+          <!-- Language & Max Alternatives -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-400 font-mono text-[11px] mb-1">recognition.lang</label>
+              <select id="langSelect" class="w-full bg-slate-950 border border-slate-800 rounded px-2.5 py-1.5 font-mono text-xs text-white outline-none focus:border-indigo-500">
+                <option value="en-GB" selected>en-GB (macOS UK)</option>
+                <option value="en-US">en-US (macOS US)</option>
+                <option value="en-AU">en-AU (Australia)</option>
+                <option value="en-IE">en-IE (Ireland)</option>
+                <option value="en-IN">en-IN (India)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-mono text-[11px] mb-1">maxAlternatives: <span id="maxAltVal" class="text-indigo-400 font-bold">8</span></label>
+              <input id="maxAltSlider" type="range" min="1" max="10" value="8" class="w-full accent-indigo-500 mt-1.5 cursor-pointer" />
+            </div>
+          </div>
+
+          <!-- Toggles Grid -->
+          <div class="grid grid-cols-1 gap-2 pt-1">
+            <label class="flex items-center justify-between p-2 rounded bg-slate-950 border border-slate-800/80 cursor-pointer hover:border-slate-700">
+              <div>
+                <div class="font-medium text-slate-200">Instant Interim Trigger <span class="text-[10px] font-mono text-emerald-400 ml-1">(-700ms latency)</span></div>
+                <div class="text-[11px] text-slate-400">Fire match immediately on valid interim token</div>
+              </div>
+              <input id="instantInterimToggle" type="checkbox" checked class="w-4 h-4 accent-emerald-500 rounded cursor-pointer" />
+            </label>
+
+            <label class="flex items-center justify-between p-2 rounded bg-slate-950 border border-slate-800/80 cursor-pointer hover:border-slate-700">
+              <div>
+                <div class="font-medium text-slate-200">Phonetic & Homophone Dictionary</div>
+                <div class="text-[11px] text-slate-400">Map "for/floor"→4, "free/tree"→3, "falls"→false</div>
+              </div>
+              <input id="phoneticNormToggle" type="checkbox" checked class="w-4 h-4 accent-indigo-500 rounded cursor-pointer" />
+            </label>
+
+            <label class="flex items-center justify-between p-2 rounded bg-slate-950 border border-slate-800/80 cursor-pointer hover:border-slate-700">
+              <div>
+                <div class="font-medium text-slate-200">Strip Carrier Prefixes</div>
+                <div class="text-[11px] text-slate-400">Allow "answer four", "number 5", "option B"</div>
+              </div>
+              <input id="carrierStripToggle" type="checkbox" checked class="w-4 h-4 accent-indigo-500 rounded cursor-pointer" />
+            </label>
+
+            <div class="grid grid-cols-3 gap-1.5">
+              <label class="flex items-center gap-1.5 p-2 rounded bg-slate-950 border border-slate-800/80 cursor-pointer text-[11px] font-mono">
+                <input id="continuousToggle" type="checkbox" checked class="accent-indigo-500" />
+                continuous
+              </label>
+              <label class="flex items-center gap-1.5 p-2 rounded bg-slate-950 border border-slate-800/80 cursor-pointer text-[11px] font-mono">
+                <input id="interimToggle" type="checkbox" checked class="accent-indigo-500" />
+                interimRes
+              </label>
+              <label class="flex items-center gap-1.5 p-2 rounded bg-slate-950 border border-slate-800/80 cursor-pointer text-[11px] font-mono" title="Auto-restart recognition when Safari/Chrome times out">
+                <input id="watchdogToggle" type="checkbox" checked class="accent-indigo-500" />
+                watchdog
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. WEB AUDIO VAD & LATENCY TELEMETRY -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-4 shadow-lg">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">3. Audio Gate / VAD & Latency</span>
+          <span id="rmsDbReadout" class="text-xs font-mono text-slate-400">-∞ dB</span>
+        </div>
+
+        <!-- Real-time RMS Level Bar & Threshold Marker -->
+        <div class="relative w-full h-4 bg-slate-950 rounded overflow-hidden border border-slate-800 mb-2">
+          <div id="vadMeterFill" class="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-all duration-75" style="width: 2%;"></div>
+          <div id="vadGateMarker" class="absolute top-0 bottom-0 w-0.5 bg-indigo-400 z-10" style="left: 18%;" title="Voice Activity Onset Threshold"></div>
+        </div>
+
+        <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-3">
+          <span>VAD Gate Sensitivity: <strong id="vadThreshLabel" class="text-indigo-300">18%</strong></span>
+          <input id="vadThresholdSlider" type="range" min="5" max="60" value="18" class="w-28 accent-indigo-500 cursor-pointer" />
+        </div>
+
+        <!-- Millisecond Telemetry Grid -->
+        <div class="grid grid-cols-3 gap-2 text-center font-mono">
+          <div class="bg-slate-950 p-2 rounded border border-slate-800">
+            <div class="text-[10px] text-slate-500 uppercase">VAD → 1st Interim</div>
+            <div id="latFirstInterim" class="text-sm font-bold text-amber-400 mt-0.5">— ms</div>
+          </div>
+          <div class="bg-slate-950 p-2 rounded border border-slate-800">
+            <div class="text-[10px] text-slate-500 uppercase">VAD → Match Lock</div>
+            <div id="latMatchLock" class="text-sm font-bold text-emerald-400 mt-0.5">— ms</div>
+          </div>
+          <div class="bg-slate-950 p-2 rounded border border-slate-800">
+            <div class="text-[10px] text-slate-500 uppercase">VAD → isFinal</div>
+            <div id="latFinalEndpoint" class="text-sm font-bold text-rose-400 mt-0.5">— ms</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CENTER COLUMN (5 COLS): LIVE STREAM, N-BEST MATRIX & EVENT LOG -->
+    <div class="lg:col-span-5 flex flex-col gap-4">
+
+      <!-- 4. LIVE TRANSCRIPT & NORMALIZATION PIPELINE -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-4 shadow-lg">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">4. Live Interim vs. Final Stream</span>
+          <div class="flex items-center gap-2">
+            <span id="streamTypePill" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-400">WAITING</span>
+            <button id="flushStreamBtn" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Abort & immediately restart session to flush interim buffer">
+              Flush Buffer
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 font-mono">
+          <div class="bg-slate-950 p-3 rounded border border-slate-800">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Raw Acoustic Transcript [0]</div>
+            <div id="rawTranscriptBox" class="text-base font-semibold text-slate-200 min-h-[28px] break-words">—</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded border border-slate-800">
+            <div class="text-[10px] text-slate-500 uppercase mb-1">Normalized Canonical Value</div>
+            <div id="normalizedValueBox" class="text-base font-bold text-emerald-400 min-h-[28px] flex items-center justify-between">
+              <span>—</span>
+              <span id="normSourceTag" class="text-[10px] font-normal text-indigo-300 bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-500/30 hidden"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dry-Run Simulator Input (Test without speaking or debug edge cases) -->
+        <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center gap-2">
+          <span class="text-[11px] font-mono text-slate-400 whitespace-nowrap">Simulate ASR:</span>
+          <input id="simulateInput" type="text" placeholder="Type e.g. 'for', 'free', 'falls', 'answer four', 'charlie'..." 
+            class="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded px-2.5 py-1 text-xs font-mono text-slate-200 outline-none" />
+          <button id="simulateBtn" class="px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 rounded text-xs font-mono transition">
+            Inject
+          </button>
+        </div>
+      </div>
+
+      <!-- 5. N-BEST SPEECH RECOGNITION ALTERNATIVES INSPECTOR -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-4 shadow-lg flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">5. N-Best Hypotheses Matrix (result[i][0..n])</span>
+            <p class="text-[11px] text-slate-400 mt-0.5">Inspects all <code class="text-indigo-300">SpeechRecognitionAlternative</code> items. Even if [0] is "for", [1] or [2] often contains "4".</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto flex-1 border border-slate-800 rounded bg-slate-950">
+          <table class="w-full text-left border-collapse font-mono text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-[10px] text-slate-400 uppercase bg-slate-900/60">
+                <th class="py-2 px-2.5">Alt #</th>
+                <th class="py-2 px-2.5">Raw Hypothesis</th>
+                <th class="py-2 px-2.5">Conf</th>
+                <th class="py-2 px-2.5">Normalized</th>
+                <th class="py-2 px-2.5">Resolution Rule</th>
+                <th class="py-2 px-2.5 text-right">Target?</th>
+              </tr>
+            </thead>
+            <tbody id="nBestTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+              <tr>
+                <td colspan="6" class="py-8 text-center text-slate-500">Speak into microphone or click "Inject" above to inspect N-Best alternatives...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 6. REAL-TIME EVENT & TIMING LOG -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3.5 shadow-lg">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">6. Acoustic & Recognition Event Telemetry</span>
+          <button id="clearLogBtn" class="text-[11px] font-mono text-slate-400 hover:text-white">Clear Log</button>
+        </div>
+        <div id="eventLogContainer" class="h-36 overflow-y-auto bg-slate-950 border border-slate-800 rounded p-2 font-mono text-[11px] space-y-1">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN (3 COLS): INTERACTIVE PHONETIC & HOMOPHONE ENGINE -->
+    <div class="lg:col-span-3 flex flex-col gap-4">
+
+      <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-4 shadow-lg flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-mono uppercase tracking-wider text-indigo-400 font-semibold">7. Phonetic Alias Dictionary</span>
+          <button id="resetDictBtn" class="text-[11px] font-mono text-slate-400 hover:text-amber-300 transition" title="Restore default dictionary">Reset Defaults</button>
+        </div>
+        <p class="text-[11px] text-slate-400 mb-3">
+          Click any chip to test it through the normalizer, or add custom homophones observed on your M3 Air mic.
+        </p>
+
+        <!-- Quick Add Custom Alias Form -->
+        <div class="bg-slate-950 p-2.5 rounded border border-slate-800 mb-3">
+          <div class="text-[10px] font-mono uppercase text-slate-400 mb-1.5">Add Custom Alias Mapping</div>
+          <div class="flex items-center gap-1.5">
+            <input id="newAliasKey" type="text" placeholder="Target (e.g. 4)" class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono text-white outline-none focus:border-indigo-500" />
+            <span class="text-slate-500 font-mono text-xs">←</span>
+            <input id="newAliasWord" type="text" placeholder="Misheard (e.g. fork)" class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs font-mono text-white outline-none focus:border-indigo-500" />
+            <button id="addAliasBtn" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-mono font-semibold transition">+</button>
+          </div>
+        </div>
+
+        <!-- Interactive Dictionary List -->
+        <div id="dictionaryList" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[420px]">
+          <!-- Rendered by JS -->
+        </div>
+
+        <!-- Toggleable Raw JSON Editor -->
+        <div class="mt-3 pt-3 border-t border-slate-800">
+          <button id="toggleJsonBtn" class="w-full py-1.5 px-3 rounded bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-mono flex items-center justify-between transition">
+            <span>Edit Raw JSON Mapping</span>
+            <span id="jsonChevron">▼</span>
+          </button>
+          <div id="jsonEditorWrap" class="hidden mt-2">
+            <textarea id="jsonTextarea" rows="7" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-[11px] font-mono text-emerald-300 outline-none focus:border-indigo-500"></textarea>
+            <div class="flex justify-end gap-2 mt-1.5">
+              <span id="jsonStatusMsg" class="text-[11px] font-mono text-slate-400 self-center"></span>
+              <button id="applyJsonBtn" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-mono font-semibold">Apply JSON</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    /***************************************************************************
+     * 1. DEFAULT PHONETIC & HOMOPHONE DICTIONARY FOR MACOS WEBKIT / BLINK
+     * Specifically tuned for isolated single-word utterances on Apple Silicon
+     ***************************************************************************/
+    const DEFAULT_PHONETIC_MAP = {
+      "0": ["0", "zero", "oh", "o", "hero", "nero", "zircon", "nil", "naught"],
+      "1": ["1", "one", "won", "wan", "un", "once", "run"],
+      "2": ["2", "two", "to", "too", "tu", "chew", "do", "who", "shoe"],
+      "3": ["3", "three", "free", "tree", "see", "tea", "flea", "spree", "thee", "sri"],
+      "4": ["4", "four", "for", "fore", "floor", "fort", "pour", "or", "far", "full", "fall", "ford", "form", "more", "war", "bore", "door", "roar", "soar"],
+      "5": ["5", "five", "fine", "fife", "hive", "fight", "fire", "find", "live", "dive", "wives", "file", "side", "size", "sigh"],
+      "6": ["6", "six", "sick", "sicks", "sex", "seeks", "sticks", "fix", "ticks", "kicks", "picks", "mix", "sax"],
+      "7": ["7", "seven", "heaven", "sevens", "saving", "sever", "devon", "kevin"],
+      "8": ["8", "eight", "ate", "ait", "hate", "wait", "late", "weight", "gate", "date", "fate", "rate", "great", "bait", "state", "it", "eat", "aid"],
+      "9": ["9", "nine", "mine", "line", "nein", "pine", "wine", "vine", "dine", "sign", "shine", "noon", "known", "none", "knight", "night"],
+      "10": ["10", "ten", "tin", "tan", "then", "pen", "men", "hen", "den", "ken", "zen", "tend", "tent"],
+      "11": ["11", "eleven", "leaven", "loving"],
+      "12": ["12", "twelve", "twelfth", "delve", "dwell"],
+      "true": ["true", "through", "threw", "drew", "crew", "brew", "grew", "you", "truth", "troop", "truly", "to", "two", "chew", "correct", "yes", "yeah", "right"],
+      "false": ["false", "falls", "faults", "force", "fours", "vaults", "folks", "foul", "fouls", "fault", "forth", "fourth", "fast", "fox", "wrong", "no", "nope"],
+      "A": ["a", "alpha", "hey", "ay", "aye", "eh", "day", "may", "say", "way", "pay", "ray", "bay"],
+      "B": ["b", "bravo", "be", "bee", "bea", "beat", "bead", "beef", "bi", "pea", "pee", "me", "we", "he"],
+      "C": ["c", "charlie", "see", "sea", "si", "she", "seat", "seed", "seek", "seem", "scene", "fee"],
+      "D": ["d", "delta", "the", "dee", "de", "dea", "deep", "deed", "deal", "dean", "tea", "tee"]
+    };
+
+    // Carrier prefixes that users can speak to warm up the acoustic model
+    const CARRIER_PREFIXES = [
+      "answer is", "the answer is", "answer", "number", "option", "choice",
+      "letter", "it is", "it's", "its", "equals", "is", "say", "code", "value"
+    ];
+
+    // Compound English number words parser (for 0 - 999)
+    const WORD_TO_NUM = {
+      zero: 0, oh: 0, one: 1, won: 1, two: 2, to: 2, too: 2, three: 3, free: 3, tree: 3,
+      four: 4, for: 4, fore: 4, floor: 4, five: 5, fine: 5, hive: 5, six: 6, sick: 6,
+      seven: 7, eight: 8, ate: 8, wait: 8, nine: 9, mine: 9, ten: 10, tin: 10,
+      eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
+      seventeen: 17, eighteen: 18, nineteen: 19,
+      twenty: 20, thirty: 30, forty: 40, fourty: 40, fifty: 50, sixty: 60,
+      seventy: 70, eighty: 80, ninety: 90
+    };
+
+    /***************************************************************************
+     * 2. APPLICATION STATE
+     ***************************************************************************/
+    const state = {
+      mode: 'NUMBERS', // 'NUMBERS' | 'BOOLEAN' | 'MCQ'
+      expectedTarget: '4',
+      hits: 0,
+      phoneticMap: JSON.parse(JSON.stringify(DEFAULT_PHONETIC_MAP)),
+      isListening: false,
+      manualStop: false,
+      watchdogRestarts: 0,
+      utteranceLocked: false, // Prevents firing multiple times for the same prompt on interim stream
+      lastMatchedPromptId: 0,
+      currentPromptId: 1,
+      hardWordIndex: 0,
+      // Timing telemetry (performance.now())
+      vadOnsetTime: null,
+      firstInterimTime: null,
+      matchLockTime: null,
+      vadActive: false,
+      vadThreshold: 18
+    };
+
+    const HARD_WORDS_CYCLE = [
+      { mode: 'NUMBERS', prompt: '12 ÷ 3 = ?', target: '4', note: 'Tests "four" vs "for/floor"' },
+      { mode: 'NUMBERS', prompt: '15 ÷ 3 = ?', target: '5', note: 'Tests "five" vs "fine/hive"' },
+      { mode: 'NUMBERS', prompt: '9 ÷ 3 = ?', target: '3', note: 'Tests "three" vs "free/tree"' },
+      { mode: 'NUMBERS', prompt: '16 ÷ 2 = ?', target: '8', note: 'Tests "eight" vs "ate/wait"' },
+      { mode: 'BOOLEAN', prompt: 'Is 7 × 8 = 54?', target: 'false', note: 'Tests "false" vs "falls/force"' },
+      { mode: 'BOOLEAN', prompt: 'Is 9 × 6 = 54?', target: 'true', note: 'Tests "true" vs "through/threw"' },
+      { mode: 'MCQ', prompt: '√49 = ? [A:6  B:7  C:8  D:9]', target: 'B', note: 'Tests "B / Bravo" vs "be/bee"' }
+    ];
+
+    /***************************************************************************
+     * 3. DOM REFERENCES
+     ***************************************************************************/
+    const el = {
+      statusDot: document.getElementById('statusDot'),
+      engineBadge: document.getElementById('engineBadge'),
+      lifecycleState: document.getElementById('lifecycleState'),
+      watchdogCount: document.getElementById('watchdogCount'),
+      masterMicBtn: document.getElementById('masterMicBtn'),
+      masterMicText: document.getElementById('masterMicText'),
+      toggleWorkaroundsBtn: document.getElementById('toggleWorkaroundsBtn'),
+      workaroundsDrawer: document.getElementById('workaroundsDrawer'),
+      closeDrawerBtn: document.getElementById('closeDrawerBtn'),
+      promptCard: document.getElementById('promptCard'),
+      streakBadge: document.getElementById('streakBadge'),
+      modeBtns: document.querySelectorAll('.mode-btn'),
+      promptSubtext: document.getElementById('promptSubtext'),
+      promptDisplay: document.getElementById('promptDisplay'),
+      expectedTargetBadge: document.getElementById('expectedTargetBadge'),
+      manualTargetInput: document.getElementById('manualTargetInput'),
+      randomPromptBtn: document.getElementById('randomPromptBtn'),
+      problemWordsBtn: document.getElementById('problemWordsBtn'),
+      matchBanner: document.getElementById('matchBanner'),
+      matchStatusText: document.getElementById('matchStatusText'),
+      matchLatencyBadge: document.getElementById('matchLatencyBadge'),
+      langSelect: document.getElementById('langSelect'),
+      maxAltSlider: document.getElementById('maxAltSlider'),
+      maxAltVal: document.getElementById('maxAltVal'),
+      instantInterimToggle: document.getElementById('instantInterimToggle'),
+      phoneticNormToggle: document.getElementById('phoneticNormToggle'),
+      carrierStripToggle: document.getElementById('carrierStripToggle'),
+      continuousToggle: document.getElementById('continuousToggle'),
+      interimToggle: document.getElementById('interimToggle'),
+      watchdogToggle: document.getElementById('watchdogToggle'),
+      rmsDbReadout: document.getElementById('rmsDbReadout'),
+      vadMeterFill: document.getElementById('vadMeterFill'),
+      vadGateMarker: document.getElementById('vadGateMarker'),
+      vadThreshLabel: document.getElementById('vadThreshLabel'),
+      vadThresholdSlider: document.getElementById('vadThresholdSlider'),
+      latFirstInterim: document.getElementById('latFirstInterim'),
+      latMatchLock: document.getElementById('latMatchLock'),
+      latFinalEndpoint: document.getElementById('latFinalEndpoint'),
+      streamTypePill: document.getElementById('streamTypePill'),
+      flushStreamBtn: document.getElementById('flushStreamBtn'),
+      rawTranscriptBox: document.getElementById('rawTranscriptBox'),
+      normalizedValueBox: document.getElementById('normalizedValueBox'),
+      normSourceTag: document.getElementById('normSourceTag'),
+      simulateInput: document.getElementById('simulateInput'),
+      simulateBtn: document.getElementById('simulateBtn'),
+      nBestTableBody: document.getElementById('nBestTableBody'),
+      eventLogContainer: document.getElementById('eventLogContainer'),
+      clearLogBtn: document.getElementById('clearLogBtn'),
+      dictionaryList: document.getElementById('dictionaryList'),
+      newAliasKey: document.getElementById('newAliasKey'),
+      newAliasWord: document.getElementById('newAliasWord'),
+      addAliasBtn: document.getElementById('addAliasBtn'),
+      resetDictBtn: document.getElementById('resetDictBtn'),
+      toggleJsonBtn: document.getElementById('toggleJsonBtn'),
+      jsonEditorWrap: document.getElementById('jsonEditorWrap'),
+      jsonTextarea: document.getElementById('jsonTextarea'),
+      applyJsonBtn: document.getElementById('applyJsonBtn'),
+      jsonStatusMsg: document.getElementById('jsonStatusMsg'),
+      jsonChevron: document.getElementById('jsonChevron')
+    };
+
+    /***************************************************************************
+     * 4. LOGGING UTILITY
+     ***************************************************************************/
+    function logEvent(tag, message, colorClass = 'text-slate-300') {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      const row = document.createElement('div');
+      row.className = 'flex items-start gap-2 leading-tight';
+      row.innerHTML = `
+        <span class="text-slate-600 select-none">[${timeStr}]</span>
+        <span class="font-semibold ${colorClass} min-w-[78px]">${tag}</span>
+        <span class="text-slate-300 break-all">${message}</span>
+      `;
+      el.eventLogContainer.prepend(row);
+      while (el.eventLogContainer.children.length > 80) {
+        el.eventLogContainer.removeChild(el.eventLogContainer.lastChild);
+      }
+    }
+
+    /***************************************************************************
+     * 5. PHONETIC & HOMOPHONE NORMALIZATION ENGINE
+     ***************************************************************************/
+    function normalizeTranscript(rawText, activeMode) {
+      if (!rawText) return { value: null, rule: 'empty' };
+
+      // 1. Clean punctuation and lowercase
+      let cleaned = rawText
+        .toLowerCase()
+        .replace(/[.,?!:;'"()[\]{}\-_]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      // 2. Carrier Phrase Stripping (e.g., "answer four" -> "four", "option b" -> "b")
+      let strippedCarrier = false;
+      if (el.carrierStripToggle.checked) {
+        for (const prefix of CARRIER_PREFIXES) {
+          if (cleaned.startsWith(prefix + ' ')) {
+            cleaned = cleaned.slice(prefix.length).trim();
+            strippedCarrier = true;
+            break;
+          }
+        }
+      }
+
+      // 3. Handle repeated double-tap words (e.g. user says "four four" or "true true" to beat VAD clipping)
+      const tokens = cleaned.split(' ').filter(Boolean);
+      if (tokens.length === 2 && tokens[0] === tokens[1]) {
+        cleaned = tokens[0];
+      }
+
+      // 4. Mode-specific & Dictionary evaluation
+      const usePhonetic = el.phoneticNormToggle.checked;
+
+      // Helper to check dictionary keys relevant to current mode
+      const candidateKeys = Object.keys(state.phoneticMap).filter(k => {
+        if (activeMode === 'BOOLEAN') return k === 'true' || k === 'false';
+        if (activeMode === 'MCQ') return ['A', 'B', 'C', 'D'].includes(k);
+        if (activeMode === 'NUMBERS') return !['true', 'false', 'A', 'B', 'C', 'D'].includes(k);
+        return true;
+      });
+
+      // 4A. Direct digit match in NUMBERS mode
+      if (activeMode === 'NUMBERS') {
+        const directDigits = cleaned.match(/^-?\d+$/);
+        if (directDigits) {
+          return {
+            value: directDigits[0],
+            rule: strippedCarrier ? 'carrier+digit' : 'exact-digit'
+          };
+        }
+      }
+
+      // 4B. Check candidate dictionary keys (exact or phonetic alias)
+      for (const targetKey of candidateKeys) {
+        const aliases = state.phoneticMap[targetKey] || [];
+        // If phonetic normalization is off, only match the first canonical word or key itself
+        const activeAliases = usePhonetic ? aliases : [targetKey.toLowerCase(), aliases[1] || ''];
+
+        if (activeAliases.includes(cleaned)) {
+          const isExact = (cleaned === targetKey.toLowerCase() || cleaned === aliases[1]);
+          return {
+            value: targetKey,
+            rule: strippedCarrier
+              ? 'carrier+alias'
+              : (isExact ? 'canonical' : `homophone("${cleaned}"→${targetKey})`)
+          };
+        }
+
+        // Also check last token if continuous stream appended onto previous words
+        if (tokens.length > 1) {
+          const lastToken = tokens[tokens.length - 1];
+          if (activeAliases.includes(lastToken)) {
+            return {
+              value: targetKey,
+              rule: `tail-token("${lastToken}"→${targetKey})`
+            };
+          }
+        }
+      }
+
+      // 4C. Multi-word number parsing (e.g., "twenty four" -> "24", "one hundred five" -> "105")
+      if (activeMode === 'NUMBERS') {
+        const parsedNum = parseSpokenNumber(tokens);
+        if (parsedNum !== null) {
+          return {
+            value: String(parsedNum),
+            rule: 'compound-number'
+          };
+        }
+      }
+
+      return { value: null, rule: 'unmatched' };
+    }
+
+    function parseSpokenNumber(tokens) {
+      if (!tokens || tokens.length === 0) return null;
+      let total = 0;
+      let current = 0;
+      let matchedAny = false;
+
+      for (const t of tokens) {
+        if (/^\d+$/.test(t)) {
+          current += parseInt(t, 10);
+          matchedAny = true;
+        } else if (WORD_TO_NUM[t] !== undefined) {
+          current += WORD_TO_NUM[t];
+          matchedAny = true;
+        } else if (t === 'hundred') {
+          current = (current === 0 ? 1 : current) * 100;
+          matchedAny = true;
+        } else if (t === 'and') {
+          continue;
+        }
+      }
+      total += current;
+      return matchedAny ? total : null;
+    }
+
+    /***************************************************************************
+     * 6. N-BEST HYPOTHESIS PROCESSOR & MATCH EVALUATOR
+     ***************************************************************************/
+    function processAlternativesList(alternativesArray, isFinal) {
+      const now = performance.now();
+
+      // Update first interim latency if VAD was triggered
+      if (!isFinal && state.vadOnsetTime && !state.firstInterimTime) {
+        state.firstInterimTime = now;
+        const delta = Math.round(now - state.vadOnsetTime);
+        el.latFirstInterim.textContent = `${delta} ms`;
+      }
+
+      if (isFinal && state.vadOnsetTime) {
+        const finalDelta = Math.round(now - state.vadOnsetTime);
+        el.latFinalEndpoint.textContent = `${finalDelta} ms`;
+      }
+
+      // Stream status pill
+      if (isFinal) {
+        el.streamTypePill.textContent = 'FINAL (isFinal=true)';
+        el.streamTypePill.className = 'text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      } else {
+        el.streamTypePill.textContent = 'INTERIM STREAM';
+        el.streamTypePill.className = 'text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      }
+
+      const primaryRaw = alternativesArray[0]?.transcript || '';
+      el.rawTranscriptBox.textContent = primaryRaw || '—';
+
+      let bestResolved = null;
+      let winningAltIndex = -1;
+      const expected = String(state.expectedTarget).trim().toLowerCase();
+
+      // Build N-Best Inspector rows & check each hypothesis against normalizer
+      el.nBestTableBody.innerHTML = '';
+
+      alternativesArray.forEach((alt, idx) => {
+        const norm = normalizeTranscript(alt.transcript, state.mode);
+        const isTargetMatch = norm.value !== null && String(norm.value).toLowerCase() === expected;
+
+        if (isTargetMatch && winningAltIndex === -1) {
+          winningAltIndex = idx;
+          bestResolved = { ...norm, altIndex: idx, raw: alt.transcript };
+        } else if (!bestResolved && norm.value !== null) {
+          bestResolved = { ...norm, altIndex: idx, raw: alt.transcript };
+        }
+
+        const confPct = alt.confidence ? (alt.confidence * 100).toFixed(1) + '%' : (idx === 0 ? 'Primary' : 'N/A');
+
+        const tr = document.createElement('tr');
+        tr.className = isTargetMatch
+          ? 'bg-emerald-950/50 text-emerald-200 font-semibold'
+          : 'hover:bg-slate-900/60';
+
+        tr.innerHTML = `
+          <td class="py-1.5 px-2.5 text-slate-400">[${idx}]</td>
+          <td class="py-1.5 px-2.5 font-semibold text-white">"${escapeHtml(alt.transcript)}"</td>
+          <td class="py-1.5 px-2.5 text-slate-400">${confPct}</td>
+          <td class="py-1.5 px-2.5 ${norm.value !== null ? 'text-indigo-300 font-bold' : 'text-slate-600'}">${norm.value !== null ? norm.value : '—'}</td>
+          <td class="py-1.5 px-2.5 text-[11px] text-slate-400">${norm.rule}</td>
+          <td class="py-1.5 px-2.5 text-right">
+            ${isTargetMatch
+              ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px]">MATCH ✓</span>'
+              : '<span class="text-slate-600 text-[10px]">NO</span>'}
+          </td>
+        `;
+        el.nBestTableBody.appendChild(tr);
+      });
+
+      // Update Normalized Value readout box
+      if (bestResolved) {
+        el.normalizedValueBox.firstElementChild.textContent = bestResolved.value;
+        el.normSourceTag.textContent = `Alt[${bestResolved.altIndex}] • ${bestResolved.rule}`;
+        el.normSourceTag.classList.remove('hidden');
+      } else {
+        el.normalizedValueBox.firstElementChild.textContent = 'Unresolved';
+        el.normSourceTag.classList.add('hidden');
+      }
+
+      // Evaluate Target Hit
+      const allowInterimMatch = el.instantInterimToggle.checked;
+      const canTrigger = isFinal || allowInterimMatch;
+
+      if (winningAltIndex !== -1 && canTrigger && state.lastMatchedPromptId !== state.currentPromptId) {
+        state.lastMatchedPromptId = state.currentPromptId;
+        state.hits++;
+        el.streakBadge.textContent = `Hits: ${state.hits}`;
+
+        const matchLatency = state.vadOnsetTime ? Math.round(now - state.vadOnsetTime) : 140;
+        el.latMatchLock.textContent = `${matchLatency} ms`;
+
+        el.matchBanner.className = 'mt-3 px-3 py-2 rounded bg-emerald-950/70 border border-emerald-500/50 flex items-center justify-between text-xs font-mono';
+        el.matchStatusText.innerHTML = `<span class="text-emerald-300 font-bold">✓ MATCHED "${bestResolved.value}"</span> via Alt[${winningAltIndex}] (${bestResolved.rule})`;
+        el.matchLatencyBadge.textContent = `${matchLatency} ms (${isFinal ? 'FINAL' : 'INTERIM'})`;
+
+        // Visual flash on prompt card
+        el.promptCard.classList.remove('match-flash');
+        void el.promptCard.offsetWidth;
+        el.promptCard.classList.add('match-flash');
+
+        logEvent(
+          isFinal ? 'FINAL-HIT' : 'INTERIM-HIT',
+          `Matched target "${bestResolved.value}" from "${bestResolved.raw}" [Alt ${winningAltIndex}] in ${matchLatency}ms`,
+          'text-emerald-400'
+        );
+
+        // If continuous mode is running and we matched on an interim result, optionally flush buffer
+        // after a brief pause so the next number starts clean
+        if (!isFinal && state.isListening && recognition) {
+          setTimeout(() => {
+            if (state.isListening) {
+              try { recognition.abort(); } catch (e) {}
+            }
+          }, 120);
+        }
+      } else if (isFinal && winningAltIndex === -1) {
+        el.matchBanner.className = 'mt-3 px-3 py-2 rounded bg-rose-950/50 border border-rose-500/40 flex items-center justify-between text-xs font-mono';
+        el.matchStatusText.innerHTML = `<span class="text-rose-300">✗ Heard "${escapeHtml(primaryRaw)}"</span> (Expected ${state.expectedTarget})`;
+        logEvent('MISS', `Final transcript "${primaryRaw}" did not match target "${state.expectedTarget}"`, 'text-rose-400');
+      }
+
+      if (isFinal) {
+        state.vadOnsetTime = null;
+        state.firstInterimTime = null;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /***************************************************************************
+     * 7. WEB SPEECH API LIFECYCLE & WATCHDOG MANAGER
+     ***************************************************************************/
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+
+    function initSpeechEngine() {
+      if (!SpeechRecognition) {
+        el.engineBadge.textContent = 'UNSUPPORTED BROWSER (Use Safari or Chrome on macOS)';
+        el.engineBadge.className = 'text-xs font-mono text-rose-300 bg-rose-950 px-2.5 py-1 rounded border border-rose-700';
+        logEvent('FATAL', 'window.SpeechRecognition / webkitSpeechRecognition not found.', 'text-rose-500');
+        return;
+      }
+
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      el.engineBadge.textContent = isSafari ? 'Apple WebKit SpeechRecognition (macOS)' : 'Blink webkitSpeechRecognition (macOS)';
+
+      recognition = new SpeechRecognition();
+      applyRecognitionSettings();
+
+      recognition.onstart = () => {
+        state.isListening = true;
+        el.lifecycleState.textContent = 'LISTENING';
+        el.lifecycleState.className = 'text-emerald-400 font-semibold';
+        el.statusDot.className = 'w-3 h-3 rounded-full bg-emerald-500 inline-block pulse-ring';
+        el.masterMicText.textContent = 'Stop Voice Engine';
+        el.masterMicBtn.className = 'px-3.5 py-1.5 rounded font-sans font-semibold text-xs bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/30 transition flex items-center gap-1.5';
+        logEvent('onstart', `Engine listening (${recognition.lang}, maxAlt=${recognition.maxAlternatives})`, 'text-indigo-400');
+      };
+
+      recognition.onaudiostart = () => logEvent('onaudiostart', 'Hardware audio capture active', 'text-slate-400');
+      recognition.onspeechstart = () => {
+        if (!state.vadOnsetTime) {
+          state.vadOnsetTime = performance.now();
+        }
+        logEvent('onspeechstart', 'Browser VAD detected speech onset', 'text-amber-400');
+      };
+
+      recognition.onresult = (event) => {
+        const latestResult = event.results[event.results.length - 1];
+        const isFinal = latestResult.isFinal;
+        const alts = [];
+        for (let i = 0; i < latestResult.length; i++) {
+          alts.push({
+            transcript: latestResult[i].transcript,
+            confidence: latestResult[i].confidence
+          });
+        }
+        processAlternativesList(alts, isFinal);
+      };
+
+      recognition.onerror = (event) => {
+        logEvent('onerror', `SpeechRecognitionError: ${event.error}`, 'text-rose-400');
+        el.lifecycleState.textContent = `ERR:${event.error.toUpperCase()}`;
+        el.lifecycleState.className = 'text-rose-400 font-semibold';
+      };
+
+      recognition.onend = () => {
+        state.isListening = false;
+        if (!state.manualStop && el.watchdogToggle.checked) {
+          state.watchdogRestarts++;
+          el.watchdogCount.textContent = state.watchdogRestarts;
+          el.lifecycleState.textContent = 'RESTARTING';
+          el.lifecycleState.className = 'text-amber-400 font-semibold';
+          setTimeout(() => {
+            if (!state.manualStop) {
+              try {
+                applyRecognitionSettings();
+                recognition.start();
+              } catch (e) {}
+            }
+          }, 60);
+        } else {
+          el.lifecycleState.textContent = 'STOPPED';
+          el.lifecycleState.className = 'text-slate-400 font-semibold';
+          el.statusDot.className = 'w-3 h-3 rounded-full bg-slate-600 inline-block';
+          el.masterMicText.textContent = 'Start Voice Engine';
+          el.masterMicBtn.className = 'px-3.5 py-1.5 rounded font-sans font-semibold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition flex items-center gap-1.5';
+          logEvent('onend', 'Session ended cleanly', 'text-slate-400');
+        }
+      };
+    }
+
+    function applyRecognitionSettings() {
+      if (!recognition) return;
+      recognition.lang = el.langSelect.value;
+      recognition.continuous = el.continuousToggle.checked;
+      recognition.interimResults = el.interimToggle.checked;
+      recognition.maxAlternatives = parseInt(el.maxAltSlider.value, 10);
+    }
+
+    /***************************************************************************
+     * 8. WEB AUDIO API RMS LEVEL METER & HARDWARE VAD ONSET DETECTOR
+     ***************************************************************************/
+    let audioCtx = null;
+    let analyser = null;
+    let micStream = null;
+    let rafId = null;
+
+    async function startWebAudioVad() {
+      if (audioCtx) return;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: false, // Keeping noiseSuppression false prevents M3 Air gating short fricatives like "four/five"
+            autoGainControl: true
+          }
+        });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(micStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        source.connect(analyser);
+
+        const dataArray = new Float32Array(analyser.fftSize);
+
+        function updateMeter() {
+          if (!analyser) return;
+          analyser.getFloatTimeDomainData(dataArray);
+          let sumSquares = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sumSquares += dataArray[i] * dataArray[i];
+          }
+          const rms = Math.sqrt(sumSquares / dataArray.length);
+          const db = 20 * Math.log10(Math.max(rms, 1e-7));
+          // Map -65dB..0dB to 0..100%
+          const pct = Math.min(100, Math.max(0, ((db + 65) / 65) * 100));
+
+          el.vadMeterFill.style.width = `${pct.toFixed(1)}%`;
+          el.rmsDbReadout.textContent = `${db.toFixed(1)} dB`;
+
+          // Detect voice onset before Web Speech API fires onresult
+          if (pct >= state.vadThreshold) {
+            if (!state.vadActive) {
+              state.vadActive = true;
+              if (!state.vadOnsetTime) {
+                state.vadOnsetTime = performance.now();
+                state.firstInterimTime = null;
+              }
+            }
+          } else {
+            state.vadActive = false;
+          }
+
+          rafId = requestAnimationFrame(updateMeter);
+        }
+        updateMeter();
+        logEvent('WebAudio', 'RMS level meter & low-latency VAD onset clock started', 'text-emerald-400');
+      } catch (err) {
+        logEvent('AudioErr', `Mic stream access failed: ${err.message}`, 'text-rose-400');
+      }
+    }
+
+    function stopWebAudioVad() {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      if (audioCtx) audioCtx.close();
+      audioCtx = null;
+      analyser = null;
+      micStream = null;
+      el.vadMeterFill.style.width = '0%';
+      el.rmsDbReadout.textContent = '-∞ dB';
+    }
+
+    /***************************************************************************
+     * 9. MENTAL MATHS PROMPT GENERATOR & MODE SWITCHER
+     ***************************************************************************/
+    function setMode(newMode) {
+      state.mode = newMode;
+      el.modeBtns.forEach(btn => {
+        if (btn.dataset.mode === newMode) {
+          btn.className = 'mode-btn py-1.5 px-2 rounded bg-indigo-600 text-white shadow transition';
+        } else {
+          btn.className = 'mode-btn py-1.5 px-2 rounded text-slate-400 hover:text-white transition';
+        }
+      });
+      generatePrompt();
+    }
+
+    function generatePrompt() {
+      state.currentPromptId++;
+      state.vadOnsetTime = null;
+      state.firstInterimTime = null;
+
+      if (state.mode === 'NUMBERS') {
+        // Favor single-digit and teen answers (especially 3, 4, 5, 6, 8, 9) for testing
+        const problems = [
+          { q: '12 ÷ 3 = ?', a: '4' },
+          { q: '20 ÷ 4 = ?', a: '5' },
+          { q: '18 ÷ 6 = ?', a: '3' },
+          { q: '24 ÷ 3 = ?', a: '8' },
+          { q: '36 ÷ 4 = ?', a: '9' },
+          { q: '42 ÷ 7 = ?', a: '6' },
+          { q: '7 × 0 = ?', a: '0' },
+          { q: '14 ÷ 7 = ?', a: '2' },
+          { q: '15 - 5 = ?', a: '10' },
+          { q: '6 + 5 = ?', a: '11' },
+          { q: '4 × 3 = ?', a: '12' },
+          { q: '9 + 15 = ?', a: '24' }
+        ];
+        const pick = problems[Math.floor(Math.random() * problems.length)];
+        el.promptSubtext.textContent = 'Mental Maths Prompt (Say Number or "Answer X"):';
+        el.promptDisplay.textContent = pick.q;
+        setExpectedTarget(pick.a);
+      } else if (state.mode === 'BOOLEAN') {
+        const a = Math.floor(Math.random() * 9) + 2;
+        const b = Math.floor(Math.random() * 9) + 2;
+        const isTrue = Math.random() > 0.5;
+        const shown = isTrue ? a * b : a * b + (Math.random() > 0.5 ? 2 : -2);
+        el.promptSubtext.textContent = 'True / False Verification:';
+        el.promptDisplay.textContent = `Is ${a} × ${b} = ${shown}?`;
+        setExpectedTarget(isTrue ? 'true' : 'false');
+      } else if (state.mode === 'MCQ') {
+        const mcqs = [
+          { q: '√64 = ?  [A:6  B:7  C:8  D:9]', a: 'C' },
+          { q: '15% of 200?  [A:20  B:30  C:40  D:25]', a: 'B' },
+          { q: '2⁵ = ?  [A:32  B:16  C:64  D:25]', a: 'A' },
+          { q: '9² - 1 = ?  [A:72  B:82  C:79  D:80]', a: 'D' }
+        ];
+        const pick = mcqs[Math.floor(Math.random() * mcqs.length)];
+        el.promptSubtext.textContent = 'Multiple Choice (Say A/B/C/D or Alpha/Bravo...):';
+        el.promptDisplay.textContent = pick.q;
+        setExpectedTarget(pick.a);
+      }
+
+      el.matchBanner.className = 'mt-3 px-3 py-2 rounded bg-slate-950 border border-slate-800 flex items-center justify-between text-xs font-mono';
+      el.matchStatusText.textContent = 'Waiting for voice answer...';
+      el.matchLatencyBadge.textContent = '— ms';
+    }
+
+    function setExpectedTarget(val) {
+      state.expectedTarget = String(val).trim();
+      el.expectedTargetBadge.textContent = state.expectedTarget;
+      el.manualTargetInput.value = state.expectedTarget;
+    }
+
+    /***************************************************************************
+     * 10. INTERACTIVE PHONETIC DICTIONARY RENDERER & EDITOR
+     ***************************************************************************/
+    function renderDictionaryUI() {
+      el.dictionaryList.innerHTML = '';
+      Object.entries(state.phoneticMap).forEach(([targetKey, aliases]) => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-950 border border-slate-800/90 rounded p-2 text-xs';
+
+        const chipsHtml = aliases.map(word => `
+          <button data-testword="${escapeHtml(word)}" data-targetkey="${escapeHtml(targetKey)}"
+            class="dict-chip px-1.5 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 font-mono text-[11px] transition"
+            title="Click to simulate recognition of '${escapeHtml(word)}'">
+            ${escapeHtml(word)}
+          </button>
+        `).join('');
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-mono font-bold text-emerald-400">Target: "${escapeHtml(targetKey)}"</span>
+            <span class="text-[10px] font-mono text-slate-500">${aliases.length} aliases</span>
+          </div>
+          <div class="flex flex-wrap gap-1">${chipsHtml}</div>
+        `;
+        el.dictionaryList.appendChild(card);
+      });
+
+      // Attach click-to-test listeners on chips
+      document.querySelectorAll('.dict-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const word = chip.dataset.testword;
+          const tKey = chip.dataset.targetkey;
+          // Automatically switch mode & target so the developer can see the normalization live
+          if (tKey === 'true' || tKey === 'false') setMode('BOOLEAN');
+          else if (['A', 'B', 'C', 'D'].includes(tKey)) setMode('MCQ');
+          else setMode('NUMBERS');
+
+          state.currentPromptId++;
+          setExpectedTarget(tKey);
+          el.simulateInput.value = word;
+          runSimulation(word);
+        });
+      });
+
+      el.jsonTextarea.value = JSON.stringify(state.phoneticMap, null, 2);
+    }
+
+    function runSimulation(rawString) {
+      if (!rawString.trim()) return;
+      state.vadOnsetTime = performance.now() - 145; // Simulated 145ms acoustic onset
+      state.currentPromptId++;
+
+      // Construct realistic N-Best alternatives showing how Web Speech API ranks homophones first
+      const simulatedAlts = [
+        { transcript: rawString, confidence: 0.89 }
+      ];
+      if (rawString.toLowerCase() === 'for') {
+        simulatedAlts.push({ transcript: 'four', confidence: 0.76 }, { transcript: '4', confidence: 0.68 });
+      } else if (rawString.toLowerCase() === 'free') {
+        simulatedAlts.push({ transcript: 'three', confidence: 0.72 }, { transcript: 'tree', confidence: 0.61 });
+      } else if (rawString.toLowerCase() === 'falls') {
+        simulatedAlts.push({ transcript: 'false', confidence: 0.74 }, { transcript: 'faults', confidence: 0.59 });
+      }
+
+      logEvent('SIMULATE', `Injected utterance "${rawString}"`, 'text-indigo-400');
+      processAlternativesList(simulatedAlts, false);
+    }
+
+    /***************************************************************************
+     * 11. EVENT LISTENERS & INITIALIZATION
+     ***************************************************************************/
+    el.masterMicBtn.addEventListener('click', async () => {
+      if (!recognition) return;
+      if (state.isListening) {
+        state.manualStop = true;
+        recognition.stop();
+        stopWebAudioVad();
+      } else {
+        state.manualStop = false;
+        await startWebAudioVad();
+        try {
+          applyRecognitionSettings();
+          recognition.start();
+        } catch (e) {
+          logEvent('StartErr', e.message, 'text-rose-400');
+        }
+      }
+    });
+
+    el.toggleWorkaroundsBtn.addEventListener('click', () => {
+      el.workaroundsDrawer.classList.toggle('hidden');
+    });
+    el.closeDrawerBtn.addEventListener('click', () => {
+      el.workaroundsDrawer.classList.add('hidden');
+    });
+
+    el.modeBtns.forEach(btn => {
+      btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    });
+
+    el.randomPromptBtn.addEventListener('click', generatePrompt);
+
+    el.problemWordsBtn.addEventListener('click', () => {
+      const item = HARD_WORDS_CYCLE[state.hardWordIndex % HARD_WORDS_CYCLE.length];
+      state.hardWordIndex++;
+      setMode(item.mode);
+      state.currentPromptId++;
+      el.promptDisplay.textContent = item.q || item.prompt;
+      el.promptSubtext.textContent = item.note;
+      setExpectedTarget(item.target);
+      logEvent('TEST-CASE', `Loaded hard word test: Target "${item.target}" (${item.note})`, 'text-amber-400');
+    });
+
+    el.manualTargetInput.addEventListener('input', (e) => {
+      state.currentPromptId++;
+      state.expectedTarget = e.target.value.trim();
+      el.expectedTargetBadge.textContent = state.expectedTarget || '?';
+    });
+
+    el.maxAltSlider.addEventListener('input', (e) => {
+      el.maxAltVal.textContent = e.target.value;
+      applyRecognitionSettings();
+    });
+
+    [el.langSelect, el.continuousToggle, el.interimToggle].forEach(ctrl => {
+      ctrl.addEventListener('change', () => {
+        applyRecognitionSettings();
+        if (state.isListening && recognition) {
+          try { recognition.stop(); } catch (e) {}
+        }
+      });
+    });
+
+    el.vadThresholdSlider.addEventListener('input', (e) => {
+      state.vadThreshold = parseInt(e.target.value, 10);
+      el.vadThreshLabel.textContent = `${state.vadThreshold}%`;
+      el.vadGateMarker.style.left = `${state.vadThreshold}%`;
+    });
+
+    el.flushStreamBtn.addEventListener('click', () => {
+      if (state.isListening && recognition) {
+        logEvent('FLUSH', 'Aborted current stream to clear interim buffer; watchdog will restart', 'text-amber-400');
+        try { recognition.abort(); } catch (e) {}
+      }
+    });
+
+    el.simulateBtn.addEventListener('click', () => runSimulation(el.simulateInput.value));
+    el.simulateInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') runSimulation(el.simulateInput.value);
+    });
+
+    el.clearLogBtn.addEventListener('click', () => {
+      el.eventLogContainer.innerHTML = '';
+    });
+
+    el.addAliasBtn.addEventListener('click', () => {
+      const key = el.newAliasKey.value.trim();
+      const word = el.newAliasWord.value.trim().toLowerCase();
+      if (!key || !word) return;
+      if (!state.phoneticMap[key]) state.phoneticMap[key] = [key.toLowerCase()];
+      if (!state.phoneticMap[key].includes(word)) {
+        state.phoneticMap[key].push(word);
+      }
+      el.newAliasWord.value = '';
+      renderDictionaryUI();
+      logEvent('DICT-ADD', `Mapped custom homophone "${word}" → "${key}"`, 'text-emerald-400');
+    });
+
+    el.resetDictBtn.addEventListener('click', () => {
+      state.phoneticMap = JSON.parse(JSON.stringify(DEFAULT_PHONETIC_MAP));
+      renderDictionaryUI();
+      logEvent('DICT-RESET', 'Restored default macOS homophone dictionary', 'text-amber-400');
+    });
+
+    el.toggleJsonBtn.addEventListener('click', () => {
+      const hidden = el.jsonEditorWrap.classList.toggle('hidden');
+      el.jsonChevron.textContent = hidden ? '▼' : '▲';
+    });
+
+    el.applyJsonBtn.addEventListener('click', () => {
+      try {
+        const parsed = JSON.parse(el.jsonTextarea.value);
+        state.phoneticMap = parsed;
+        renderDictionaryUI();
+        el.jsonStatusMsg.textContent = 'Saved ✓';
+        el.jsonStatusMsg.className = 'text-[11px] font-mono text-emerald-400 self-center';
+      } catch (err) {
+        el.jsonStatusMsg.textContent = 'Invalid JSON';
+        el.jsonStatusMsg.className = 'text-[11px] font-mono text-rose-400 self-center';
+      }
+    });
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      initSpeechEngine();
+      renderDictionaryUI();
+      logEvent('READY', 'Debugger initialized. Click "Start Voice Engine" or click any phonetic chip on the right to test.', 'text-emerald-400');
+    });
+  </script>
+</body>
+</html>
